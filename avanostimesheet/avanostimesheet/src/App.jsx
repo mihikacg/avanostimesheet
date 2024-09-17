@@ -1,35 +1,45 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import NavBar from './components/NavBar';
+import NameSelectionModal from './components/nameSelectionModal';
+import Home from './pages/Homepage';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('userName');
+    if (storedName) {
+      setUserName(storedName);
+    } else {
+      setIsModalOpen(true);
+    }
+  }, []);
+
+  const handleSelectName = (name) => {
+    setUserName(name);
+    localStorage.setItem('userName', name);
+    setIsModalOpen(false);
+  };
+
+  const handleChangeUser = () => {
+    setIsModalOpen(true);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="App">
+      <NavBar onChangeUser={handleChangeUser} />
+      <div className="content">
+        <NameSelectionModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSelectName={handleSelectName}
+        />
+        {userName && <Home userName={userName} />}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
