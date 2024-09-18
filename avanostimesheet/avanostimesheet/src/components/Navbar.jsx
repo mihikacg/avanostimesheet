@@ -13,6 +13,7 @@ const NavBar = ({ onChangeUser }) => {
         <div className="nav-menu">
           <a href="/" className="nav-link">Home</a>
           <a href="/add-time" className="nav-link">Add Time</a>
+        
           <button onClick={onChangeUser} className="nav-link change-user-btn">Change User</button>
         </div>
       </div>
