@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import NavBar from './components/NavBar';
-import NameSelectionModal from './components/nameSelectionModal';
-import Home from './pages/Homepage';
+import NavBar from './components/Navbar.jsx';
+import NameSelectionModal from './components/NameSelectionModal.jsx';
+import Home from './pages/HomePage.jsx';
 import './App.css';
 
 function App() {

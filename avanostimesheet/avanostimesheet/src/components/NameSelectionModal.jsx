@@ -1,16 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios'; // Import axios if using it
 import './NameSelectionModal.css';
 
 const NameSelectionModal = ({ isOpen, onClose, onSelectName }) => {
   const [selectedName, setSelectedName] = useState('');
-  
-  // Example list of names - replace with your actual list
-  const names = ['x','y','z'];
+  const [names, setNames] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Reset selected name when modal opens
     if (isOpen) {
-      setSelectedName('');
+      // Fetch names when modal opens
+      const fetchNames = async () => {
+        try {
+          const response = await axios.get('http://localhost:4000/users');
+          const namesList = response.data.map(user => user.name);
+          setNames(namesList);
+          setLoading(false);
+        } catch (error) {
+          console.error('Error fetching names:', error);
+          setLoading(false);
+        }
+      };
+
+      fetchNames();
+      setSelectedName(''); // Reset selected name
     }
   }, [isOpen]);
 
@@ -23,6 +36,16 @@ const NameSelectionModal = ({ isOpen, onClose, onSelectName }) => {
   };
 
   if (!isOpen) return null;
+
+  if (loading) {
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <h2>Loading...</h2>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay">
