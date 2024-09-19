@@ -3,7 +3,7 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import logo from "../assets/Avanos logo.png";
 import { navItems } from "../constants";
 
-const Navbar = () => {
+const Navbar = ({ onDashboardClick }) => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [userSelectOpen, setUserSelectOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -33,7 +33,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white border-b-2  fixed w-full top-0 z-50">
+    <nav className="bg-white border-b-2 fixed w-full top-0 z-50">
       <div className="container px-4 mx0 relative lg:text-base">
         <div className="flex justify-between items-center py-3">
           {/* Logo */}
@@ -47,7 +47,13 @@ const Navbar = () => {
             <ul className="flex space-x-12">
               {navItems.map((item, index) => (
                 <li key={index}>
-                  <a href={item.href} className="text-black hover:text-gray-600 text-lg">{item.label}</a>
+                  <a 
+                    href={item.href} 
+                    className="text-black hover:text-gray-600 text-lg"
+                    onClick={item.label === "Dashboard" ? onDashboardClick : null} // Trigger scroll on Dashboard click
+                  >
+                    {item.label}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -98,7 +104,13 @@ const Navbar = () => {
             <ul className="text-center mt-16">
               {navItems.map((item, index) => (
                 <li key={index} className="py-4">
-                  <a href={item.href} className="text-black hover:text-gray-600 text-xl">{item.label}</a>
+                  <a 
+                    href={item.href} 
+                    className="text-black hover:text-gray-600 text-xl"
+                    onClick={item.label === "Dashboard" ? onDashboardClick : null} // Trigger scroll on Dashboard click
+                  >
+                    {item.label}
+                  </a>
                 </li>
               ))}
             </ul>
