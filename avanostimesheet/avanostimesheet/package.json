@@ -11,8 +11,12 @@
   },
   "proxy": "http://localhost:4000/",
   "dependencies": {
+    "@azure/msal-browser": "^3.23.0",
+    "@azure/msal-react": "^2.0.22",
     "axios": "^1.7.7",
+    "bootstrap": "^5.3.3",
     "react": "^18.3.1",
+    "react-bootstrap": "^2.10.4",
     "react-datepicker": "^7.3.0",
     "react-dom": "^18.3.1"
   },
