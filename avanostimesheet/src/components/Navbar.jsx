@@ -3,13 +3,12 @@ import { Menu, X, ChevronDown } from "lucide-react";
 import logo from "../assets/Avanos logo.png";
 import { navItems } from "../constants";
 
-const Navbar = ({ onDashboardClick }) => {
+const Navbar = ({ onDashboardClick, onClockInOutClick }) => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [userSelectOpen, setUserSelectOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    // Check for saved user in local storage when component mounts
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       setSelectedUser(savedUser);
@@ -24,17 +23,26 @@ const Navbar = ({ onDashboardClick }) => {
     setUserSelectOpen(!userSelectOpen);
   };
 
-  const userList = ["A", "B", "C","D" ];
+  const userList = ["A", "B", "C", "D"];
 
   const selectUser = (user) => {
     setSelectedUser(user);
-    localStorage.setItem('user', user); // Save user to local storage
+    localStorage.setItem('user', user);
     setUserSelectOpen(false);
+  };
+
+  const handleNavItemClick = (item) => {
+    if (item.label === "Dashboard") {
+      onDashboardClick();
+    } else if (item.label === "Clock In/Out" || item.label === "Add Time") {
+      onClockInOutClick();
+    }
+    setMobileDrawerOpen(false);
   };
 
   return (
     <nav className="bg-white border-b-2 fixed w-full top-0 z-50">
-      <div className="container px-4 mx0 relative lg:text-base">
+      <div className="container px-4 mx-auto relative lg:text-base">
         <div className="flex justify-between items-center py-3">
           {/* Logo */}
           <div className="flex items-center flex-shrink-0">
@@ -47,13 +55,12 @@ const Navbar = ({ onDashboardClick }) => {
             <ul className="flex space-x-12">
               {navItems.map((item, index) => (
                 <li key={index}>
-                  <a 
-                    href={item.href} 
+                  <button 
                     className="text-black hover:text-gray-600 text-lg"
-                    onClick={item.label === "Dashboard" ? onDashboardClick : null} // Trigger scroll on Dashboard click
+                    onClick={() => handleNavItemClick(item)}
                   >
                     {item.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -104,13 +111,12 @@ const Navbar = ({ onDashboardClick }) => {
             <ul className="text-center mt-16">
               {navItems.map((item, index) => (
                 <li key={index} className="py-4">
-                  <a 
-                    href={item.href} 
+                  <button 
                     className="text-black hover:text-gray-600 text-xl"
-                    onClick={item.label === "Dashboard" ? onDashboardClick : null} // Trigger scroll on Dashboard click
+                    onClick={() => handleNavItemClick(item)}
                   >
                     {item.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
