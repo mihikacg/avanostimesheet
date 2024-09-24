@@ -21,7 +21,7 @@ const Navbar = ({ onDashboardClick, onClockInOutClick }) => {
     const fetchUsers = async () => {
       try {
         const response = await axios.get('http://localhost:4000/users');
-        const usersList = response.data.map(user => user.name);
+        const usersList = response.data.map(user => `${user.Last_name}, ${user.First_name}`);
         setUsers(usersList);
         setLoading(false);
       } catch (error) {
