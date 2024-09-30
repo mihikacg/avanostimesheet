@@ -1,33 +1,44 @@
-import React, { useRef } from "react";
+import React, { useState } from "react";
+import { UserProvider, useUser } from './UserContext';
 import Navbar from "./components/Navbar";
 import Dashboard from "./components/Dashboard";
 import ClockInOut from "./components/ClockInOut";
 
-const App = () => {
-  const dashboardRef = useRef(null);
-  const clockInOutRef = useRef(null);
+const AppContent = () => {
+  const [currentView, setCurrentView] = useState('dashboard');
+  const { selectedUser } = useUser();
 
-  const scrollToSection = (ref) => {
-    if (ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth" });
-    }
+  const handleNavigation = (view) => {
+    setCurrentView(view);
   };
 
   return (
-    <div className="bg-custom-orange min-h-screen">
-     <Navbar 
-        onDashboardClick={() => scrollToSection(dashboardRef)}
-        onClockInOutClick={() => scrollToSection(clockInOutRef)}
+    <div className="bg-custom-orange min-h-screen flex flex-col">
+      <Navbar 
+        onDashboardClick={() => handleNavigation('dashboard')}
+        onClockInOutClick={() => handleNavigation('clockInOut')}
       />
-      <div className="pt-10"> {/* Adjust padding for fixed navbar */}
-        <section ref={dashboardRef}>
-          <Dashboard />
-        </section>
-        <section ref={clockInOutRef}>
-          <ClockInOut/>
-        </section>
+      <div className="flex-grow pt-20 px-4"> {/* Padding for fixed navbar */}
+        {!selectedUser ? (
+          <div className="flex items-center justify-center h-full">
+            <h2 className="text-3xl font-bold text-black mt-20">Please select a user</h2>
+          </div>
+        ) : (
+          <>
+            {currentView === 'dashboard' && <Dashboard />}
+            {currentView === 'clockInOut' && <ClockInOut />}
+          </>
+        )}
       </div>
     </div>
+  );
+};
+
+const App = () => {
+  return (
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
   );
 };
 

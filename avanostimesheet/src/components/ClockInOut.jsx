@@ -88,7 +88,7 @@ const ClockInOut = () => {
 
   return (
     <div className="className=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
-      <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
+      <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
         <div className="p-8">
           <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
           

@@ -1,81 +1,56 @@
-const express = require('express')
-const router = express.Router()
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
 
-router.get('/users', (req, res) => {
-    const userData = 
-    [
-        {
-          "id": 1,
-          "name": "Leanne Graham",
-          "username": "Bret",
-          "email": "Sincere@april.biz",
-          "address": {
-            "street": "Kulas Light",
-            "suite": "Apt. 556",
-            "city": "Gwenborough",
-            "zipcode": "92998-3874",
-            "geo": {
-              "lat": "-37.3159",
-              "lng": "81.1496"
-            }
-          },
-          "phone": "1-770-736-8031 x56442",
-          "website": "hildegard.org",
-          "company": {
-            "name": "Romaguera-Crona",
-            "catchPhrase": "Multi-layered client-server neural-net",
-            "bs": "harness real-time e-markets"
-          }
-        },
-        {
-          "id": 2,
-          "name": "Ervin Howell",
-          "username": "Antonette",
-          "email": "Shanna@melissa.tv",
-          "address": {
-            "street": "Victor Plains",
-            "suite": "Suite 879",
-            "city": "Wisokyburgh",
-            "zipcode": "90566-7771",
-            "geo": {
-              "lat": "-43.9509",
-              "lng": "-34.4618"
-            }
-          },
-          "phone": "010-692-6593 x09125",
-          "website": "anastasia.net",
-          "company": {
-            "name": "Deckow-Crist",
-            "catchPhrase": "Proactive didactic contingency",
-            "bs": "synergize scalable supply-chains"
-          }
-        },
-        {
-          "id": 3,
-          "name": "Clementine Bauch",
-          "username": "Samantha",
-          "email": "Nathan@yesenia.net",
-          "address": {
-            "street": "Douglas Extension",
-            "suite": "Suite 847",
-            "city": "McKenziehaven",
-            "zipcode": "59590-4157",
-            "geo": {
-              "lat": "-68.6102",
-              "lng": "-47.0653"
-            }
-          },
-          "phone": "1-463-123-4447",
-          "website": "ramiro.info",
-          "company": {
-            "name": "Romaguera-Jacobson",
-            "catchPhrase": "Face to face bifurcated interface",
-            "bs": "e-enable strategic applications"
-          }
-        }
-      ]
+router.get('/users', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Users');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'An error occurred while fetching users' });
+  }
+});
 
-      res.send(userData)
-})
+router.get('/timesheet/:employeeId', async (req, res) => {
+  try {
+    const employeeId = req.params.employeeId;
+    const weekStart = req.query.weekStart; // Expect weekStart as a query parameter
 
-module.exports = router
+    if (!weekStart) {
+      return res.status(400).json({ error: 'Week start date is required' });
+    }
+
+    const [rows] = await db.query(
+      'SELECT * FROM TimeSheetEntry WHERE Employee_ID = ? AND DATE(Week_Start) = DATE(?)',
+      [employeeId, weekStart]
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while fetching timesheet entries' });
+  }
+});
+
+router.get('/projects', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Projects');
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while fetching projects' });
+  }
+});
+
+router.get('/tasks', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM Tasks');
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while fetching tasks' });
+  }
+});
+
+module.exports = router;
