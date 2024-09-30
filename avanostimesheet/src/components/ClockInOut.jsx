@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import HourInput from './HourInput';
+import { UserProvider, useUser } from '../UserContext';
 
 const ClockInOut = () => {
   const [selectedDate, setSelectedDate] = useState(getMonday(new Date()));
@@ -9,15 +10,49 @@ const ClockInOut = () => {
   const [tableData, setTableData] = useState([]);
   const [editingRow, setEditingRow] = useState(null);
   const [error, setError] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
-  const projectOptions = ['Project A', 'Project B', 'Project C'];
-  const taskOptions = ['Task 1', 'Task 2', 'Task 3'];
+
+  // const projectOptions = ['Project A', 'Project B', 'Project C'];
+  // const taskOptions = ['Task 1', 'Task 2', 'Task 3'];
 
   useEffect(() => {
-    updateWeekDates(selectedDate);
-  }, [selectedDate]);
+      // Fetch projects
+      fetch('http://localhost:4000/projects')
+      .then(response => response.json()) // Parse JSON data from the response
+      .then(data => {
+        const projectList = data.map(project => ({
+          id: project.Project_ID,        // Assuming this is the field from your API response
+          name: project.Project_Name     // Assuming this is the field from your API response
+        }));
+        setProjects(projectList);         // Set the state with the processed data
+      })
+      .catch(error => console.error('Error fetching projects:', error));
+    
+    
+      // Fetch tasks
+      fetch('http://localhost:4000/tasks')
+      .then(response => response.json())
+      .then(data => {
+        const taskList = data.map(task => ({
+          id: task.Task_ID,               // Assuming this is the field from your API response
+          name: task.Task_Name            // Assuming this is the field from your API response
+        }));
+        setTasks(taskList);               // Set the state with the processed data
+      })
+      .catch(error => console.error('Error fetching tasks:', error));
+  }, []);
 
-  function getMonday(date) {
+    // Update the week dates when selectedDate changes
+    useEffect(() => {
+      updateWeekDates(selectedDate);
+    }, [selectedDate]);
+
+    const { employeeId, loading } = useUser();
+
+      
+    function getMonday(date) {
     const d = new Date(date);
     const day = d.getDay();
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -71,15 +106,58 @@ const ClockInOut = () => {
     setError('');
   };
 
-  const handleSave = (id) => {
+  const handleSave = async (id) => {
     const rowToSave = tableData.find(row => row.id === id);
+    
+    // Ensure Project and Task are selected
     if (!rowToSave.projectName || !rowToSave.task) {
       setError('Project Name and Task must be selected before saving.');
       return;
     }
-    setEditingRow(null);
-    setError('');
+  
+    try {
+      const project = projects.find(p => p.name === rowToSave.projectName);
+      const task = tasks.find(t => t.name === rowToSave.task);
+  
+      // Week start date in YYYY-MM-DD format
+      const weekStart = selectedDate.toISOString().split('T')[0];
+  
+      // Create an array of entries for each day (Mon-Fri)
+      const entries = weekDates.map((date, index) => ({
+        Project_ID: project.id,                // Use Project_ID from projects list
+        Task_ID: task.id,                      // Use Task_ID from tasks list
+        Week_Start: weekStart,                 // Week start date
+        Entry_Date: date.toISOString().split('T')[0], // Entry date (formatted as YYYY-MM-DD)
+        Hours: rowToSave[['mon', 'tue', 'wed', 'thu', 'fri'][index]], // Hours worked on that day
+        Employee_ID: employeeId, // Placeholder Employee_ID (replace with dynamic value)
+        Comments: rowToSave.comments || '',     // Optional comments (if applicable)
+        Status: 'Pending'                      // Default status
+      }));
+  
+      // Send data to backend (assuming '/timesheet' is your endpoint for saving)
+      const response = await fetch('http://localhost:4000/timesheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(entries)
+      });
+  
+      if (response.ok) {
+        console.log('Timesheet saved successfully.');
+        setEditingRow(null); // Exit editing mode
+        setError('');
+      } else {
+        const errorText = await response.text(); // Get the response text
+        console.error('Error saving timesheet:', response.statusText, errorText);
+        setError('Error saving timesheet: ' + errorText); // Display the error message
+    }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Error saving timesheet: ' + error.message); // More detailed error message
+    }
   };
+  
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -90,8 +168,23 @@ const ClockInOut = () => {
     <div className="className=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
         <div className="p-8">
-          <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
-          
+          {/* Conditionally render content based on loading or employeeId */}
+          {loading ? (
+            <div>Loading...</div> 
+          ) : !employeeId ? (
+            <div className="flex items-center justify-center h-full">
+              <h2 className="text-3xl font-bold text-black mt-20">Please select a user in the Navbar</h2>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
+              <h1 className="text-4xl font-bold mb-8 text-black">{employeeId}</h1> 
+
+              {/* ... rest of your ClockInOut component code */}
+            </>
+          )} 
+          {/* <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
+          <h1 className="text-4xl font-bold mb-8 text-black">{employeeId}</h1> */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
             <DatePicker
@@ -141,9 +234,9 @@ const ClockInOut = () => {
                             className="form-select w-full"
                           >
                             <option value="">Select Project</option>
-                            {projectOptions.map((project, index) => (
-                              <option key={index} value={project}>
-                                {project}
+                            {projects.map((project) => (
+                              <option key={project.id} value={project.name}>
+                                {project.name}
                               </option>
                             ))}
                           </select>
@@ -159,9 +252,9 @@ const ClockInOut = () => {
                             className="form-select w-full"
                           >
                             <option value="">Select Task</option>
-                            {taskOptions.map((task, index) => (
-                              <option key={index} value={task}>
-                                {task}
+                            {tasks.map((task) => (
+                              <option key={task.id} value={task.name}>
+                                {task.name}
                               </option>
                             ))}
                           </select>

@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import logo from "../assets/Avanos logo.png";
 import axios from 'axios';
-import { useUser } from '../UserContext';
+import { UserProvider, useUser } from '../UserContext';
 
 const Navbar = ({ onDashboardClick, onClockInOutClick }) => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [userSelectOpen, setUserSelectOpen] = useState(false);
-  const { selectedUser, setUser, clearUser } = useUser();
+  const { selectedUser, setUser, clearUser} = useUser();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,6 +47,7 @@ const Navbar = ({ onDashboardClick, onClockInOutClick }) => {
   };
 
   const selectUser = (user) => {
+    console.log("Selecting user in Navbar:", user); // Log the selected user
     setUser(user.name, user.id, user.role);
     setUserSelectOpen(false);
   };

@@ -59,6 +59,17 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       setLoading(true);
+      // try {
+      //   const response = await axios.get('http://localhost:4000/projects');
+      //   const projectsList = response.data.map(project => ({
+      //     name: project.Project_Name,
+      //     id: project.Project_ID,
+      //     desc: project.Project_Desc, // Make sure this field exists in your API response
+      //     type: project.Project_Type
+      //   }));
+      //   setProjects(projectsList);
+      //   setLoading(false);
+      // } 
       try {
         // Simulating an API call
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -78,7 +89,8 @@ const Dashboard = () => {
           { id: 13, name: 'Project Epsilon', hours: 25, date: '2024-09-17' }
         ];
         setProjects(mockProjects);
-      } catch (err) {
+      } 
+      catch (err) {
         setError('Failed to fetch projects. Please try again later.');
       } finally {
         setLoading(false);
