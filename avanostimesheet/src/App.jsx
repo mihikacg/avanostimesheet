@@ -1,12 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserProvider, useUser } from './UserContext';
 import Navbar from "./components/Navbar";
-import Dashboard from "./components/Dashboard";
+import Dashboard from "./components/dashboard";
 import ClockInOut from "./components/ClockInOut";
+import Approve from "./components/Approve";
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState('dashboard');
-  const { selectedUser } = useUser();
+  const { selectedUser, userRole } = useUser();
+
+  useEffect(() => {
+    if (currentView === 'approve' && userRole !== 'A') {
+      setCurrentView('dashboard');
+    }
+  }, [selectedUser, userRole]); 
 
   const handleNavigation = (view) => {
     setCurrentView(view);
@@ -17,8 +24,9 @@ const AppContent = () => {
       <Navbar 
         onDashboardClick={() => handleNavigation('dashboard')}
         onClockInOutClick={() => handleNavigation('clockInOut')}
+        onApproveClick={() => handleNavigation('approve')}
       />
-      <div className="flex-grow pt-20 px-4"> {/* Padding for fixed navbar */}
+      <div className="flex-grow pt-20 px-4">
         {!selectedUser ? (
           <div className="flex items-center justify-center h-full">
             <h2 className="text-3xl font-bold text-black mt-20">Please select a user</h2>
@@ -27,6 +35,7 @@ const AppContent = () => {
           <>
             {currentView === 'dashboard' && <Dashboard />}
             {currentView === 'clockInOut' && <ClockInOut />}
+            {currentView === 'approve' && userRole === 'A' && <Approve />}
           </>
         )}
       </div>
