@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
 
 const UserContext = createContext();
 
@@ -7,6 +8,7 @@ export const UserProvider = ({ children }) => {
   const [employeeId, setEmployeeId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     // Load user data from localStorage on initial render
@@ -57,13 +59,8 @@ export const UserProvider = ({ children }) => {
     localStorage.removeItem('userRole');
   };
 
-  // return (
-  //   <UserContext.Provider value={{ selectedUser, employeeId, userRole, setUser, clearUser }}>
-  //     {children}
-  //   </UserContext.Provider>
-  // );
   return (
-    <UserContext.Provider value={{ selectedUser, employeeId, userRole, setUser, clearUser, loading }}>
+    <UserContext.Provider value={{ selectedUser, employeeId, userRole, setUser, clearUser, loading, users }}>
       {children}
     </UserContext.Provider>
   );

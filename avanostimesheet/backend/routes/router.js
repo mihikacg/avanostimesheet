@@ -25,7 +25,7 @@ router.get('/timesheet', async (req, res) => {
 router.get('/timesheet/:employeeId', async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
-    const weekStart = req.query.weekStart; // Expect weekStart as a query parameter
+    const weekStart = req.query.weekStart; 
 
     if (!weekStart) {
       return res.status(400).json({ error: 'Week start date is required' });
@@ -39,6 +39,26 @@ router.get('/timesheet/:employeeId', async (req, res) => {
     res.json(rows);
   } catch (error) {
     console.error(error);
+    res.status(500).json({ error: 'An error occurred while fetching timesheet entries' });
+  }
+});
+
+
+router.get('/approval-timesheet/:approverID', async (req, res) => {
+  try {
+    const approverID = req.params.approverID;
+    if (!approverID) {
+      return res.status(400).json({ error: 'Approver ID is required' });
+    }
+
+    const [rows] = await db.query(
+      'SELECT tse.*, u.First_name, u.Last_name FROM TimeSheetEntry tse JOIN Users u ON tse.Employee_ID = u.Employee_id WHERE u.ApproverID = ?',
+      [approverID]
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching approval timesheet:', error);
     res.status(500).json({ error: 'An error occurred while fetching timesheet entries' });
   }
 });
@@ -96,5 +116,42 @@ router.post('/timesheet', async (req, res) => {
   }
 });
 
+router.post('/approve-timesheet/:timeSheetE', async (req, res) => {
+  const { timeSheetE } = req.params;
+  try {
+    const [result] = await db.query(
+      'UPDATE TimeSheetEntry SET Status = ? WHERE TimeSheetE = ? AND Status = ?',
+      ['Approved', timeSheetE, 'Pending']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Timesheet entry not found or already approved' });
+    }
+
+    res.status(200).json({ message: 'Timesheet entry approved successfully' });
+  } catch (error) {
+    console.error('Error approving timesheet:', error);
+    res.status(500).json({ message: 'An error occurred while approving the timesheet entry' });
+  }
+});
+
+router.post('/reject-timesheet/:timeSheetE', async (req, res) => {
+  const { timeSheetE } = req.params;
+  try {
+    const [result] = await db.query(
+      'UPDATE TimeSheetEntry SET Status = ? WHERE TimeSheetE = ? AND Status = ?',
+      ['Rejected', timeSheetE, 'Pending']
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Timesheet entry not found or already rejected' });
+    }
+
+    res.status(200).json({ message: 'Timesheet entry rejected successfully' });
+  } catch (error) {
+    console.error('Error rejecting timesheet:', error);
+    res.status(500).json({ message: 'An error occurred while rejecting the timesheet entry' });
+  }
+});
 
 module.exports = router;
