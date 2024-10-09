@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
+import { useUser } from '../UserContext'; // Adjust the import path as needed
 
 const Dashboard = () => {
-  const [projects, setProjects] = useState([]);
+  const [timesheetEntries, setTimesheetEntries] = useState([]);
+  const [projects, setProjects] = useState({});
+  const [tasks, setTasks] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [dropdownPosition, setDropdownPosition] = useState('bottom');
+  const { employeeId } = useUser(); // Get the employee ID from the user context
 
   function getCurrentWeek() {
     const now = new Date();
@@ -57,48 +62,45 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      // try {
-      //   const response = await axios.get('http://localhost:4000/projects');
-      //   const projectsList = response.data.map(project => ({
-      //     name: project.Project_Name,
-      //     id: project.Project_ID,
-      //     desc: project.Project_Desc, // Make sure this field exists in your API response
-      //     type: project.Project_Type
-      //   }));
-      //   setProjects(projectsList);
-      //   setLoading(false);
-      // } 
       try {
-        // Simulating an API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const mockProjects = [
-          { id: 1, name: 'Project Alpha', hours: 20, date: '2024-09-18' },
-          { id: 2, name: 'Project Beta', hours: 15, date: '2024-09-11' },
-          { id: 3, name: 'Project Gamma', hours: 30, date: '2024-09-4' },
-          { id: 4, name: 'Project Delta', hours: 10, date: '2024-09-5' },
-          { id: 5, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 6, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 7, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 8, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 9, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 10, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 11, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 12, name: 'Project Epsilon', hours: 25, date: '2024-09-17' },
-          { id: 13, name: 'Project Epsilon', hours: 25, date: '2024-09-17' }
-        ];
-        setProjects(mockProjects);
-      } 
-      catch (err) {
-        setError('Failed to fetch projects. Please try again later.');
+        const weekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
+        const weekStartDate = weekDates.start.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        
+        const [timesheetResponse, projectsResponse, tasksResponse] = await Promise.all([
+          axios.get(`http://localhost:4000/timesheet/${employeeId}`, {
+            params: { weekStart: weekStartDate }
+          }),
+          axios.get('http://localhost:4000/projects'),
+          axios.get('http://localhost:4000/tasks')
+        ]);
+
+        setTimesheetEntries(timesheetResponse.data);
+        
+        const projectMap = projectsResponse.data.reduce((acc, project) => {
+          acc[project.Project_ID] = project.Project_Name;
+          return acc;
+        }, {});
+        setProjects(projectMap);
+
+        const taskMap = tasksResponse.data.reduce((acc, task) => {
+          acc[task.Task_ID] = task.Task_Name;
+          return acc;
+        }, {});
+        setTasks(taskMap);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to fetch data. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProjects();
-  }, []);
+    if (employeeId) {
+      fetchData();
+    }
+  }, [selectedWeek, employeeId]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -128,16 +130,21 @@ const Dashboard = () => {
     setIsDropdownOpen(false);
   };
 
-  const filteredProjects = projects.filter(project => {
-    const projectDate = new Date(project.date);
-    const weekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
-    return projectDate >= weekDates.start && projectDate <= weekDates.end;
-  });
-
-  const totalHours = filteredProjects.reduce((sum, project) => sum + project.hours, 0);
+  const { approvedHours, pendingHours,rejectedHours} = useMemo(() => {
+    return timesheetEntries.reduce((acc, entry) => {
+      if (entry.Status === 'Approved') {
+        acc.approvedHours += entry.Hours;
+      }  if (entry.Status === 'Pending') {
+        acc.pendingHours += entry.Hours;
+      }else if (entry.Status === 'Rejected') {
+        acc.rejectedHours += entry.Hours;
+      }
+      return acc;
+    }, { approvedHours: 0, pendingHours: 0,rejectedHours:0 });
+  }, [timesheetEntries]);
 
   if (loading) {
-    return <div className="text-center py-20 text-black text-xl">Loading projects...</div>;
+    return <div className="text-center py-20 text-black text-xl">Loading dashboard data...</div>;
   }
 
   if (error) {
@@ -147,23 +154,23 @@ const Dashboard = () => {
   const currentWeekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
 
   return (
-    <div className="className=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
+    <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
         <div className="p-8">
           <h1 className="text-4xl font-bold mb-8 text-black">Dashboard</h1>
           
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 space-y-4 lg:space-y-0">
-            <div className="relative w-full lg:w-auto" ref={dropdownRef}>
+          <div className="mb-8">
+            <div className="relative w-full lg:w-80" ref={dropdownRef}>
               <button 
                 onClick={toggleDropdown}
-                className="flex items-center justify-between w-full lg:w-80 px-5 py-3 text-lg text-black bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex items-center justify-between w-full px-5 py-3 text-lg text-black bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <span>{formatDateRange(currentWeekDates.start, currentWeekDates.end)}</span>
                 <ChevronDown className="w-6 h-6 ml-2" />
               </button>
               {isDropdownOpen && (
                 <div 
-                  className={`absolute z-10 w-full lg:w-80 bg-white border border-gray-300 rounded-md shadow-lg overflow-y-auto max-h-80 ${
+                  className={`absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg overflow-y-auto max-h-80 ${
                     dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
                   }`}
                 >
@@ -179,9 +186,6 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
-            <div className="text-2xl font-bold text-black">
-              Total Hours: {totalHours}
-            </div>
           </div>
 
           <div className="overflow-x-auto shadow-md rounded-lg">
@@ -192,28 +196,57 @@ const Dashboard = () => {
                     Project Name
                   </th>
                   <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                    Task Name
+                  </th>
+                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
                     Hours Worked
                   </th>
                   <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
                     Date
                   </th>
+                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredProjects.map((project) => (
-                  <tr key={project.id} className="hover:bg-gray-50">
+                {timesheetEntries.map((entry) => (
+                  <tr key={entry.TimeSheetE} className="hover:bg-gray-50">
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
-                      <p className="text-black whitespace-no-wrap">{project.name}</p>
+                      <p className="text-black whitespace-no-wrap">{projects[entry.Project_ID] || 'Unknown Project'}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
-                      <p className="text-black whitespace-no-wrap">{project.hours} hours</p>
+                      <p className="text-black whitespace-no-wrap">{tasks[entry.Task_ID] || 'Unknown Task'}</p>
                     </td>
                     <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
-                      <p className="text-black whitespace-no-wrap">{new Date(project.date).toLocaleDateString()}</p>
+                      <p className="text-black whitespace-no-wrap">{entry.Hours} hours</p>
+                    </td>
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
+                      <p className="text-black whitespace-no-wrap">{new Date(entry.Entry_Date).toLocaleDateString()}</p>
+                    </td>
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
+                      <p className={`whitespace-no-wrap ${entry.Status === 'Approved' ? 'text-green-500' : entry.Status === 'Rejected' ? 'text-red-500' : 'text-yellow-500'}`}>
+                        {entry.Status}
+                      </p>
                     </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-gray-50">
+                  <td colSpan="5" className="px-5 py-3 border-b border-gray-200 text-base">
+                    <div className="flex justify-center items-center">
+                      <p className="text-black">
+                        Approved: <span className="font-semibold text-green-500">{approvedHours} hours</span>
+                        <span className="mx-2">|</span>
+                        Pending: <span className="font-semibold text-yellow-500">{pendingHours} hours</span>
+                        <span className="mx-2">|</span>
+                        Rejected: <span className="font-semibold text-red-500">{rejectedHours} hours</span>
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
