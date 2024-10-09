@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { UserProvider, useUser } from './UserContext';
 import Navbar from "./components/Navbar";
-import Dashboard from "./components/dashboard";
+import Dashboard from "./components/Dashboard";
 import ClockInOut from "./components/ClockInOut";
 import Approve from "./components/Approve";
 
