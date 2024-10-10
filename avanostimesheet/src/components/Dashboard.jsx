@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
-import { useUser } from '../UserContext'; // Adjust the import path as needed
+import { useUser } from '../UserContext';
 
 const Dashboard = () => {
   const [timesheetEntries, setTimesheetEntries] = useState([]);
@@ -13,7 +13,7 @@ const Dashboard = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [dropdownPosition, setDropdownPosition] = useState('bottom');
-  const { employeeId } = useUser(); // Get the employee ID from the user context
+  const { employeeId } = useUser();
 
   function getCurrentWeek() {
     const now = new Date();
@@ -61,45 +61,44 @@ const Dashboard = () => {
     return options;
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const weekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
-        const weekStartDate = weekDates.start.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-        
-        const [timesheetResponse, projectsResponse, tasksResponse] = await Promise.all([
-          axios.get(`http://localhost:4000/timesheet/${employeeId}`, {
-            params: { weekStart: weekStartDate }
-          }),
-          axios.get('http://localhost:4000/projects'),
-          axios.get('http://localhost:4000/tasks')
-        ]);
+  const fetchData = async () => {
+    if (!employeeId) return;
+    setLoading(true);
+    try {
+      const weekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
+      const weekStartDate = weekDates.start.toISOString().split('T')[0];
+      
+      const [timesheetResponse, projectsResponse, tasksResponse] = await Promise.all([
+        axios.get(`http://localhost:4000/timesheet/${employeeId}`, {
+          params: { weekStart: weekStartDate }
+        }),
+        axios.get('http://localhost:4000/projects'),
+        axios.get('http://localhost:4000/tasks')
+      ]);
 
-        setTimesheetEntries(timesheetResponse.data);
-        
-        const projectMap = projectsResponse.data.reduce((acc, project) => {
-          acc[project.Project_ID] = project.Project_Name;
-          return acc;
-        }, {});
-        setProjects(projectMap);
+      setTimesheetEntries(timesheetResponse.data);
+      
+      const projectMap = projectsResponse.data.reduce((acc, project) => {
+        acc[project.Project_ID] = project.Project_Name;
+        return acc;
+      }, {});
+      setProjects(projectMap);
 
-        const taskMap = tasksResponse.data.reduce((acc, task) => {
-          acc[task.Task_ID] = task.Task_Name;
-          return acc;
-        }, {});
-        setTasks(taskMap);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to fetch data. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (employeeId) {
-      fetchData();
+      const taskMap = tasksResponse.data.reduce((acc, task) => {
+        acc[task.Task_ID] = task.Task_Name;
+        return acc;
+      }, {});
+      setTasks(taskMap);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to fetch data. Please try again later.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [selectedWeek, employeeId]);
 
   useEffect(() => {
@@ -130,17 +129,17 @@ const Dashboard = () => {
     setIsDropdownOpen(false);
   };
 
-  const { approvedHours, pendingHours,rejectedHours} = useMemo(() => {
+  const { approvedHours, pendingHours, rejectedHours } = useMemo(() => {
     return timesheetEntries.reduce((acc, entry) => {
       if (entry.Status === 'Approved') {
         acc.approvedHours += entry.Hours;
-      }  if (entry.Status === 'Pending') {
+      } else if (entry.Status === 'Pending') {
         acc.pendingHours += entry.Hours;
-      }else if (entry.Status === 'Rejected') {
+      } else if (entry.Status === 'Rejected') {
         acc.rejectedHours += entry.Hours;
       }
       return acc;
-    }, { approvedHours: 0, pendingHours: 0,rejectedHours:0 });
+    }, { approvedHours: 0, pendingHours: 0, rejectedHours: 0 });
   }, [timesheetEntries]);
 
   if (loading) {
@@ -154,7 +153,7 @@ const Dashboard = () => {
   const currentWeekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
 
   return (
-    <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
+    <div className="max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
         <div className="p-8">
           <h1 className="text-4xl font-bold mb-8 text-black">Dashboard</h1>

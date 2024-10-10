@@ -12,6 +12,8 @@ const ClockInOut = () => {
   const [error, setError] = useState('');
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const { employeeId, loading } = useUser();
+  console.log('Employee ID:', employeeId);
 
 
   // const projectOptions = ['Project A', 'Project B', 'Project C'];
@@ -49,7 +51,7 @@ const ClockInOut = () => {
       updateWeekDates(selectedDate);
     }, [selectedDate]);
 
-    const { employeeId, loading } = useUser();
+    
 
       
     function getMonday(date) {
@@ -106,10 +108,23 @@ const ClockInOut = () => {
     setError('');
   };
 
+  const fetchTimesheetEntries = async () => {
+    try {
+      const response = await fetch('http://localhost:4000/timesheet');
+      if (!response.ok) {
+        throw new Error('Failed to fetch timesheet entries');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching timesheet entries:', error);
+      return [];
+    }
+  };
+
   const handleSave = async (id) => {
     const rowToSave = tableData.find(row => row.id === id);
     
-    // Ensure Project and Task are selected
     if (!rowToSave.projectName || !rowToSave.task) {
       setError('Project Name and Task must be selected before saving.');
       return;
@@ -118,23 +133,39 @@ const ClockInOut = () => {
     try {
       const project = projects.find(p => p.name === rowToSave.projectName);
       const task = tasks.find(t => t.name === rowToSave.task);
-  
-      // Week start date in YYYY-MM-DD format
       const weekStart = selectedDate.toISOString().split('T')[0];
+      
+      // Fetch all timesheet entries and get the count
+      const allEntries = await fetchTimesheetEntries();
+      const currentCount = allEntries.length;
   
-      // Create an array of entries for each day (Mon-Fri)
-      const entries = weekDates.map((date, index) => ({
-        Project_ID: project.id,                // Use Project_ID from projects list
-        Task_ID: task.id,                      // Use Task_ID from tasks list
-        Week_Start: weekStart,                 // Week start date
-        Entry_Date: date.toISOString().split('T')[0], // Entry date (formatted as YYYY-MM-DD)
-        Hours: rowToSave[['mon', 'tue', 'wed', 'thu', 'fri'][index]], // Hours worked on that day
-        Employee_ID: employeeId, // Placeholder Employee_ID (replace with dynamic value)
-        Comments: rowToSave.comments || '',     // Optional comments (if applicable)
-        Status: 'Pending'                      // Default status
+      // First, create entries without TimeSheetE and filter
+      const filteredEntries = weekDates
+        .map((date, index) => ({
+          Project_ID: project.id,
+          Task_ID: task.id,
+          Week_Start: weekStart,
+          Entry_Date: date.toISOString().split('T')[0],
+          Hours: parseFloat(rowToSave[['mon', 'tue', 'wed', 'thu', 'fri'][index]]),
+          Employee_ID: employeeId,
+          Comments: rowToSave.comments || '',
+          Status: 'Pending'
+        }))
+        .filter(entry => entry.Hours > 0);
+  
+      // Now add TimeSheetE to filtered entries
+      const entries = filteredEntries.map((entry, index) => ({
+        ...entry,
+        TimeSheetE: currentCount + index + 1
       }));
   
-      // Send data to backend (assuming '/timesheet' is your endpoint for saving)
+      if (entries.length === 0) {
+        setError('No entries to save. Please enter hours greater than 0.');
+        return;
+      }
+  
+      console.log('Sending to server:', JSON.stringify(entries, null, 2));
+  
       const response = await fetch('http://localhost:4000/timesheet', {
         method: 'POST',
         headers: {
@@ -145,16 +176,16 @@ const ClockInOut = () => {
   
       if (response.ok) {
         console.log('Timesheet saved successfully.');
-        setEditingRow(null); // Exit editing mode
+        setEditingRow(null);
         setError('');
       } else {
-        const errorText = await response.text(); // Get the response text
+        const errorText = await response.text();
         console.error('Error saving timesheet:', response.statusText, errorText);
-        setError('Error saving timesheet: ' + errorText); // Display the error message
-    }
+        setError('Error saving timesheet: ' + errorText);
+      }
     } catch (error) {
       console.error('Error:', error);
-      setError('Error saving timesheet: ' + error.message); // More detailed error message
+      setError('Error saving timesheet: ' + error.message);
     }
   };
   

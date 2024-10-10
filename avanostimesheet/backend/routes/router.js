@@ -85,31 +85,31 @@ router.get('/tasks', async (req, res) => {
 
 router.post('/timesheet', async (req, res) => {
   try {
-    const { Project_ID, Task_ID, Week_Start, Entries, Employee_ID, Comments } = req.body;
+    const entries = req.body;
 
-    if (!Project_ID || !Task_ID || !Week_Start || !Entries || !Employee_ID) {
-      if (!Employee_ID) {
-        return res.status(400).json({ error: 'Missing employee ID.' });
-      }
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: 'No valid entries to save' });
     }
 
-    // Iterate over each day's entry in the week
-    const status = 'Pending';  // Automatic status
-    for (const entry of Entries) {
-      const { Entry_Date, Hours } = entry;
+    let savedCount = 0;
 
-      if (!Entry_Date || !Hours) {
-        return res.status(400).json({ error: 'Each entry must have an Entry_Date and Hours' });
+    for (const entry of entries) {
+      const { TimeSheetE, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status } = entry;
+
+      if (Hours > 0) {
+        await db.query(
+          'INSERT INTO TimeSheetEntry (TimeSheetE, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [TimeSheetE, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status]
+        );
+        savedCount++;
       }
-
-      await db.query(
-        'INSERT INTO TimeSheetEntry (Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, status]
-      );
     }
 
-    res.status(201).json({ message: 'Timesheet entries saved successfully' });
+    if (savedCount > 0) {
+      res.status(201).json({ message: `${savedCount} timesheet entries saved successfully` });
+    } else {
+      res.status(400).json({ error: 'No entries were saved. All entries had 0 hours.' });
+    }
   } catch (error) {
     console.error('Error saving timesheet:', error);
     res.status(500).json({ error: 'An error occurred while saving timesheet entries' });
