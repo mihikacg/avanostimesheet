@@ -3,6 +3,8 @@ import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
 import { useUser } from '../UserContext';
 
+
+
 const Dashboard = () => {
   const [timesheetEntries, setTimesheetEntries] = useState([]);
   const [projects, setProjects] = useState({});
@@ -153,7 +155,7 @@ const Dashboard = () => {
   const currentWeekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
+    <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
         <div className="p-8">
           <h1 className="text-4xl font-bold mb-8 text-black">Dashboard</h1>
@@ -211,29 +213,32 @@ const Dashboard = () => {
               <tbody>
                 {timesheetEntries.map((entry) => (
                   <tr key={entry.TimeSheetE} className="hover:bg-gray-50">
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <p className="text-black whitespace-no-wrap">{projects[entry.Project_ID] || 'Unknown Project'}</p>
                     </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <p className="text-black whitespace-no-wrap">{tasks[entry.Task_ID] || 'Unknown Task'}</p>
                     </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <p className="text-black whitespace-no-wrap">{entry.Hours} hours</p>
                     </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                       <p className="text-black whitespace-no-wrap">{new Date(entry.Entry_Date).toLocaleDateString()}</p>
                     </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-base">
-                      <p className={`whitespace-no-wrap ${entry.Status === 'Approved' ? 'text-green-500' : entry.Status === 'Rejected' ? 'text-red-500' : 'text-yellow-500'}`}>
+                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${entry.Status === 'Approved' ? 'bg-green-100 text-green-800' : 
+                          entry.Status === 'Rejected' ? 'bg-red-100 text-red-800' : 
+                          'bg-yellow-100 text-yellow-800'}`}>
                         {entry.Status}
-                      </p>
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50">
-                  <td colSpan="5" className="px-5 py-3 border-b border-gray-200 text-base">
+                  <td colSpan="5" className="px-5 py-3 border-b border-gray-200 text-sm">
                     <div className="flex justify-center items-center">
                       <p className="text-black">
                         Approved: <span className="font-semibold text-green-500">{approvedHours} hours</span>
