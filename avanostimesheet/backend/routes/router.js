@@ -154,4 +154,47 @@ router.post('/reject-timesheet/:timeSheetE', async (req, res) => {
   }
 });
 
+router.delete('/timesheet/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query('DELETE FROM TimeSheetEntry WHERE TimeSheetE = ?', [id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Timesheet entry not found' });
+    }
+    
+    res.status(200).json({ message: 'Timesheet entry deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting timesheet entry:', error);
+    res.status(500).json({ message: 'An error occurred while deleting the timesheet entry' });
+  }
+});
+
+router.put('/timesheet/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { Project_ID, Task_ID, Hours, Employee_ID, Entry_Date, Status } = req.body;
+
+    // Validate input
+    if (!Project_ID || !Task_ID || !Hours || !Employee_ID || !Entry_Date || !Status) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Perform the update
+    const result = await db.query(
+      'UPDATE TimeSheetEntry SET Project_ID = ?, Task_ID = ?, Hours = ?, Employee_ID = ?, Entry_Date = ?, Status = ? WHERE TimeSheetE = ?',
+      [Project_ID, Task_ID, Hours, Employee_ID, Entry_Date, Status, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Timesheet entry not found' });
+    }
+
+    res.status(200).json({ message: 'Timesheet entry updated successfully' });
+  } catch (error) {
+    console.error('Error updating timesheet entry:', error);
+    res.status(500).json({ message: 'An error occurred while updating the timesheet entry', error: error.message });
+  }
+});
+
 module.exports = router;
