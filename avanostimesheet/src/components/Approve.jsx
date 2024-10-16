@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useUser } from '../UserContext';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 const Approve = () => {
   const [timesheetEntries, setTimesheetEntries] = useState([]);
@@ -15,6 +16,24 @@ const Approve = () => {
       fetchData();
     }
   }, [employeeId, contextLoading]);
+
+
+const ActionButton = ({ onClick, label, color }) => {
+  const baseClasses = "px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer";
+  const colorClasses = {
+    green: "bg-green-100 text-green-800 hover:bg-green-200",
+    red: "bg-red-100 text-red-800 hover:bg-red-200",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${baseClasses} ${colorClasses[color]}`}
+    >
+      {label}
+    </button>
+  );
+};
 
   const fetchData = async () => {
     setLoading(true);
@@ -146,18 +165,19 @@ const Approve = () => {
                   </td>
                   {showApproveButton && (
                     <td className="px-5 py-5 border-b border-gray-200 text-sm">
-                      <button
-                        onClick={() => handleApprove(entry.TimeSheetE)}
-                        className="bg-green-500 hover:bg-green-700 text-white py-2 px-4 rounded mr-2"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(entry.TimeSheetE)}
-                        className="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded"
-                      >
-                        Reject
-                      </button>
+                      <>
+                        <ActionButton
+                          onClick={() => handleApprove(entry.TimeSheetE)}
+                          label="Approve"
+                          color="green"
+                        />
+                        <span className="mx-1"></span>
+                        <ActionButton
+                          onClick={() => handleReject(entry.TimeSheetE)}
+                          label="Reject"
+                          color="red"
+                        />
+                      </>
                     </td>
                   )}
                 </tr>
