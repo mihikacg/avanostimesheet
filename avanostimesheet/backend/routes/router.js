@@ -94,12 +94,12 @@ router.post('/timesheet', async (req, res) => {
     let savedCount = 0;
 
     for (const entry of entries) {
-      const { TimeSheetE, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status } = entry;
+      const { Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status } = entry;
 
       if (Hours > 0) {
         await db.query(
-          'INSERT INTO TimeSheetEntry (TimeSheetE, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [TimeSheetE, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status]
+          'INSERT INTO TimeSheetEntry (Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)',
+          [Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status]
         );
         savedCount++;
       }

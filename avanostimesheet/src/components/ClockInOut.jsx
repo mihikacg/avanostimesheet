@@ -108,20 +108,6 @@ const ClockInOut = () => {
     setError('');
   };
 
-  const fetchTimesheetEntries = async () => {
-    try {
-      const response = await fetch('http://localhost:4000/timesheet');
-      if (!response.ok) {
-        throw new Error('Failed to fetch timesheet entries');
-      }
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching timesheet entries:', error);
-      return [];
-    }
-  };
-
   const handleSave = async (id) => {
     const rowToSave = tableData.find(row => row.id === id);
     
@@ -129,18 +115,13 @@ const ClockInOut = () => {
       setError('Project Name and Task must be selected before saving.');
       return;
     }
-  
+    
     try {
       const project = projects.find(p => p.name === rowToSave.projectName);
       const task = tasks.find(t => t.name === rowToSave.task);
       const weekStart = selectedDate.toISOString().split('T')[0];
       
-      // Fetch all timesheet entries and get the count
-      const allEntries = await fetchTimesheetEntries();
-      const currentCount = allEntries.length;
-  
-      // First, create entries without TimeSheetE and filter
-      const filteredEntries = weekDates
+      const entries = weekDates
         .map((date, index) => ({
           Project_ID: project.id,
           Task_ID: task.id,
@@ -152,20 +133,14 @@ const ClockInOut = () => {
           Status: 'Pending'
         }))
         .filter(entry => entry.Hours > 0);
-  
-      // Now add TimeSheetE to filtered entries
-      const entries = filteredEntries.map((entry, index) => ({
-        ...entry,
-        TimeSheetE: currentCount + index + 1
-      }));
-  
+      
       if (entries.length === 0) {
         setError('No entries to save. Please enter hours greater than 0.');
         return;
       }
-  
+      
       console.log('Sending to server:', JSON.stringify(entries, null, 2));
-  
+      
       const response = await fetch('http://localhost:4000/timesheet', {
         method: 'POST',
         headers: {
@@ -173,7 +148,7 @@ const ClockInOut = () => {
         },
         body: JSON.stringify(entries)
       });
-  
+      
       if (response.ok) {
         console.log('Timesheet saved successfully.');
         setEditingRow(null);
