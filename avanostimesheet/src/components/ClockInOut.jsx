@@ -11,6 +11,7 @@ const ClockInOut = () => {
   const [weekDates, setWeekDates] = useState([]);
   const [tableData, setTableData] = useState([]);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const { employeeId, loading } = useUser();
@@ -26,6 +27,20 @@ const ClockInOut = () => {
     updateWeekDates(selectedDate);
     fetchTimesheetEntries();
   }, [selectedDate, employeeId]);
+
+  const calculateExistingHours = (entries) => {
+    return entries
+      .filter(entry => entry.Status !== 'Rejected')
+      .reduce((total, entry) => total + (parseFloat(entry.Hours) || 0), 0);
+  };
+
+  const calculateCurrentHours = (data) => {
+    return data.reduce((total, row) => {
+      return total + ['mon', 'tue', 'wed', 'thu', 'fri'].reduce((dayTotal, day) => {
+        return dayTotal + (parseFloat(row[day]) || 0);
+      }, 0);
+    }, 0);
+  };
 
   const fetchProjects = async () => {
     try {
@@ -90,6 +105,8 @@ const ClockInOut = () => {
 
   const handleDateChange = (date) => {
     setSelectedDate(getMonday(date));
+    setError('');
+    setSuccessMessage('');
   };
 
   const isMonday = (date) => date.getDay() === 1;
@@ -97,14 +114,44 @@ const ClockInOut = () => {
   const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   const handleInputChange = (id, field, value) => {
-    setTableData((prevData) =>
-      prevData.map((row) => (row.id === id ? { ...row, [field]: value } : row))
-    );
+    setTableData((prevData) => {
+      const newData = prevData.map((row) => 
+        row.id === id ? { ...row, [field]: value } : row
+      );
+      
+      // Calculate total hours
+      const existingHours = calculateExistingHours(timesheetEntries);
+      const currentHours = calculateCurrentHours(newData);
+      const totalHours = existingHours + currentHours;
+
+      if (totalHours > 40) {
+        setError('Total hours for the week cannot exceed 40 hours');
+      } else {
+        // Clear error if it was a 40-hour error
+        if (error === 'Total hours for the week cannot exceed 40 hours') {
+          setError('');
+        }
+      }
+      
+      return newData;
+    });
   };
 
   const addRow = () => {
+    setError('');
+    setSuccessMessage('');
+
+    // Calculate total hours including the new empty row
+    const existingHours = calculateExistingHours(timesheetEntries);
+    const currentHours = calculateCurrentHours(tableData);
+
+    if (existingHours + currentHours >= 40) {
+      setError('Cannot add more rows. Total hours would exceed 40 hours per week.');
+      return;
+    }
+
     const newRow = {
-      id: Date.now(), // Use timestamp as unique ID
+      id: Date.now(),
       projectName: '',
       task: '',
       mon: '0',
@@ -119,7 +166,7 @@ const ClockInOut = () => {
   const validateRow = (row) => {
     if (!row.projectName && !row.task) {
       return 'Project Name and Task must be selected.';
-    }else if (!row.projectName) {
+    } else if (!row.projectName) {
       return 'Project Name must be selected.';
     } else if (!row.task) {
       return 'Task must be selected.';
@@ -137,23 +184,37 @@ const ClockInOut = () => {
   };
 
   const getRowError = (row) => {
-  if (!row.projectName || !row.task) {
-    return 'Project Name and Task must be selected.';
-  }
-  
-  const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
-    day => parseFloat(row[day]) > 0
-  );
-  
-  if (!hasHours) {
-    return 'At least one day must have hours greater than 0.';
-  }
-  
-  return null;
-};
+    if (!row.projectName || !row.task) {
+      return 'Project Name and Task must be selected.';
+    }
+    
+    const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
+      day => parseFloat(row[day]) > 0
+    );
+    
+    if (!hasHours) {
+      return 'At least one day must have hours greater than 0.';
+    }
+    
+    return null;
+  };
 
   const deleteRow = (id) => {
-    setTableData(tableData.filter(row => row.id !== id));
+    if (window.confirm('Are you sure you want to delete this row?')) {
+      setTableData(prevData => {
+        const newData = prevData.filter(row => row.id !== id);
+        
+        if (error === 'Total hours for the week cannot exceed 40 hours') {
+          const existingHours = calculateExistingHours(timesheetEntries);
+          const currentHours = calculateCurrentHours(newData);
+          if (existingHours + currentHours <= 40) {
+            setError('');
+          }
+        }
+        
+        return newData;
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -164,13 +225,21 @@ const ClockInOut = () => {
       return;
     }
 
-    // Validate all rows
+    // Check each row for errors
     for (const row of tableData) {
-      const validationError = validateRow(row);
-      if (validationError) {
-        setError(`Error: ${validationError}`);
+      const rowError = getRowError(row);
+      if (rowError) {
+        setError(rowError);
         return;
       }
+    }
+
+    // Check total hours
+    const existingHours = calculateExistingHours(timesheetEntries);
+    const currentHours = calculateCurrentHours(tableData);
+    if (existingHours + currentHours > 40) {
+      setError('Total hours for the week cannot exceed 40 hours');
+      return;
     }
 
     setSubmitting(true);
@@ -210,7 +279,13 @@ const ClockInOut = () => {
       if (response.status === 201) {
         setTableData([]); // Clear the form
         setError('');
+        setSuccessMessage('Timesheet entries submitted successfully!');
         fetchTimesheetEntries(); // Refresh the displayed entries
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 5000);
       }
     } catch (error) {
       console.error('Error submitting timesheet:', error);
@@ -219,6 +294,16 @@ const ClockInOut = () => {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError('');
+      }, 5000);
+  
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   return (
     <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
@@ -234,19 +319,74 @@ const ClockInOut = () => {
             <>
               <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
-                <DatePicker
-                  selected={selectedDate}
-                  onChange={handleDateChange}
-                  filterDate={isMonday}
-                  dateFormat="MMMM d, yyyy"
-                  className="form-input px-4 py-2 border rounded-md"
-                  showPopperArrow={false}
-                />
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
+                  <DatePicker
+                    selected={selectedDate}
+                    onChange={handleDateChange}
+                    filterDate={isMonday}
+                    dateFormat="MMMM d, yyyy"
+                    className="form-input px-4 py-2 border rounded-md"
+                    showPopperArrow={false}
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-600">Entered Hours</span>
+                      <div className="flex items-center mt-1">
+                        <span className="text-lg font-bold text-black">
+                          {calculateExistingHours(timesheetEntries).toFixed(1)}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-1">hrs</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-600">Current Hours</span>
+                      <div className="flex items-center mt-1">
+                        <span className="text-lg font-bold text-blue-600">
+                          {calculateCurrentHours(tableData).toFixed(1)}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-1">hrs</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-600">Total Hours</span>
+                      <div className="flex items-center mt-1">
+                        <span className={`text-lg font-bold ${(calculateExistingHours(timesheetEntries) + calculateCurrentHours(tableData)) > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                          {(calculateExistingHours(timesheetEntries) + calculateCurrentHours(tableData)).toFixed(1)}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-1">hrs</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {error && (<div className="bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-4"><p className="text-red-800 font-medium">{error}</p> </div>)}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-4">
+                  <p className="text-red-800 font-medium">{error}</p>
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-4">
+                  <p className="text-green-800 font-medium flex items-center">
+                    <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    {successMessage}
+                  </p>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit}>
                 <div className="overflow-x-auto">
