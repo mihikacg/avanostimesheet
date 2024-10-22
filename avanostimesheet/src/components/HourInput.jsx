@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 
 const HourInput = ({ value, onChange }) => {
     const handleIncrement = () => {
-      const newValue = Math.min(24, parseFloat(value) + 0.5);
+      const newValue = Math.min(24, parseFloat(value) + 1);
       onChange(newValue.toFixed(1));
     };
   
     const handleDecrement = () => {
-      const newValue = Math.max(0, parseFloat(value) - 0.5);
+      const newValue = Math.max(0, parseFloat(value) - 1);
       onChange(newValue.toFixed(1));
     };
   

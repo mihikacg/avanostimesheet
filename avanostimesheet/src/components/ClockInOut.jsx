@@ -10,12 +10,12 @@ const ClockInOut = () => {
   const [selectedDate, setSelectedDate] = useState(getMonday(new Date()));
   const [weekDates, setWeekDates] = useState([]);
   const [tableData, setTableData] = useState([]);
-  const [editingRow, setEditingRow] = useState(null);
   const [error, setError] = useState('');
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const { employeeId, loading } = useUser();
   const [timesheetEntries, setTimesheetEntries] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -104,75 +104,120 @@ const ClockInOut = () => {
 
   const addRow = () => {
     const newRow = {
-      id: tableData.length + 1,
+      id: Date.now(), // Use timestamp as unique ID
       projectName: '',
       task: '',
       mon: '0',
       tue: '0',
       wed: '0',
       thu: '0',
-      fri: '0',
-      status: 'Pending'
+      fri: '0'
     };
     setTableData([...tableData, newRow]);
-    setEditingRow(newRow.id);
   };
 
-  const handleEdit = (id) => {
-    setEditingRow(id);
-    setError('');
-  };
-
-  const handleSave = async (id) => {
-    const rowToSave = tableData.find(row => row.id === id);
+  const validateRow = (row) => {
+    if (!row.projectName && !row.task) {
+      return 'Project Name and Task must be selected.';
+    }else if (!row.projectName) {
+      return 'Project Name must be selected.';
+    } else if (!row.task) {
+      return 'Task must be selected.';
+    }
     
-    if (!rowToSave.projectName || !rowToSave.task) {
-      setError('Project Name and Task must be selected before saving.');
+    const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
+      day => parseFloat(row[day]) > 0
+    );
+    
+    if (!hasHours) {
+      return 'At least one day must have hours greater than 0';
+    }
+    
+    return null;
+  };
+
+  const getRowError = (row) => {
+  if (!row.projectName || !row.task) {
+    return 'Project Name and Task must be selected.';
+  }
+  
+  const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
+    day => parseFloat(row[day]) > 0
+  );
+  
+  if (!hasHours) {
+    return 'At least one day must have hours greater than 0.';
+  }
+  
+  return null;
+};
+
+  const deleteRow = (id) => {
+    setTableData(tableData.filter(row => row.id !== id));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (tableData.length === 0) {
+      setError('Please add at least one row before submitting.');
       return;
     }
-    
-    try {
-      const project = projects.find(p => p.name === rowToSave.projectName);
-      const task = tasks.find(t => t.name === rowToSave.task);
-      const weekStart = selectedDate.toISOString().split('T')[0];
-      
-      const entries = weekDates
-        .map((date, index) => ({
-          Project_ID: project.id,
-          Task_ID: task.id,
-          Week_Start: weekStart,
-          Entry_Date: date.toISOString().split('T')[0],
-          Hours: parseFloat(rowToSave[['mon', 'tue', 'wed', 'thu', 'fri'][index]]),
-          Employee_ID: employeeId,
-          Comments: rowToSave.comments || '',
-          Status: 'Pending'
-        }))
-        .filter(entry => entry.Hours > 0);
-      
-      if (entries.length === 0) {
-        setError('No entries to save. Please enter hours greater than 0.');
+
+    // Validate all rows
+    for (const row of tableData) {
+      const validationError = validateRow(row);
+      if (validationError) {
+        setError(`Error: ${validationError}`);
         return;
       }
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const weekStart = selectedDate.toISOString().split('T')[0];
       
-      const response = await axios.post('http://localhost:4000/timesheet', entries);
+      const allEntries = tableData.flatMap(row => {
+        const project = projects.find(p => p.name === row.projectName);
+        const task = tasks.find(t => t.name === row.task);
+        
+        return weekDates.map((date, index) => {
+          const hours = parseFloat(row[['mon', 'tue', 'wed', 'thu', 'fri'][index]]);
+          if (hours <= 0) return null;
+
+          return {
+            Project_ID: project.id,
+            Task_ID: task.id,
+            Week_Start: weekStart,
+            Entry_Date: date.toISOString().split('T')[0],
+            Hours: hours,
+            Employee_ID: employeeId,
+            Comments: row.comments || '',
+            Status: 'Pending'
+          };
+        }).filter(entry => entry !== null);
+      });
+
+      if (allEntries.length === 0) {
+        setError('No valid entries to submit. Please enter hours greater than 0.');
+        return;
+      }
+
+      const response = await axios.post('http://localhost:4000/timesheet', allEntries);
       
       if (response.status === 201) {
-        console.log('Timesheet saved successfully.');
-        setEditingRow(null);
+        setTableData([]); // Clear the form
         setError('');
-        fetchTimesheetEntries(); // Refresh the timesheet entries after saving
-      } else {
-        throw new Error('Unexpected response status');
+        fetchTimesheetEntries(); // Refresh the displayed entries
       }
     } catch (error) {
-      console.error('Error:', error);
-      setError('Error saving timesheet: ' + error.message);
+      console.error('Error submitting timesheet:', error);
+      setError('Failed to submit timesheet: ' + error.message);
+    } finally {
+      setSubmitting(false);
     }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Submitted data:', tableData);
   };
 
   return (
@@ -201,7 +246,7 @@ const ClockInOut = () => {
                 />
               </div>
 
-              {error && <div className="text-red-500 mb-4">{error}</div>}
+              {error && (<div className="bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-4"><p className="text-red-800 font-medium">{error}</p> </div>)}
 
               <form onSubmit={handleSubmit}>
                 <div className="overflow-x-auto">
@@ -220,10 +265,7 @@ const ClockInOut = () => {
                           </th>
                         ))}
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
-                          Actions
+                          Action
                         </th>
                       </tr>
                     </thead>
@@ -231,72 +273,49 @@ const ClockInOut = () => {
                       {tableData.map((row) => (
                         <tr key={row.id}>
                           <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            {editingRow === row.id ? (
-                              <select
-                                value={row.projectName}
-                                onChange={(e) => handleInputChange(row.id, 'projectName', e.target.value)}
-                                className="form-select w-full"
-                              >
-                                <option value="">Select Project</option>
-                                {projects.map((project) => (
-                                  <option key={project.id} value={project.name}>
-                                    {project.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              row.projectName || 'Not selected'
-                            )}
+                            <select
+                              value={row.projectName}
+                              onChange={(e) => handleInputChange(row.id, 'projectName', e.target.value)}
+                              className="form-select w-full"
+                            >
+                              <option value="">Select Project</option>
+                              {projects.map((project) => (
+                                <option key={project.id} value={project.name}>
+                                  {project.name}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            {editingRow === row.id ? (
-                              <select
-                                value={row.task}
-                                onChange={(e) => handleInputChange(row.id, 'task', e.target.value)}
-                                className="form-select w-full"
-                              >
-                                <option value="">Select Task</option>
-                                {tasks.map((task) => (
-                                  <option key={task.id} value={task.name}>
-                                    {task.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              row.task || 'Not selected'
-                            )}
+                            <select
+                              value={row.task}
+                              onChange={(e) => handleInputChange(row.id, 'task', e.target.value)}
+                              className="form-select w-full"
+                            >
+                              <option value="">Select Task</option>
+                              {tasks.map((task) => (
+                                <option key={task.id} value={task.name}>
+                                  {task.name}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           {['mon', 'tue', 'wed', 'thu', 'fri'].map((day, index) => (
                             <td key={index} className="px-6 py-4 whitespace-nowrap border border-black">
-                              {editingRow === row.id ? (
-                                <HourInput
-                                  value={row[day]}
-                                  onChange={(value) => handleInputChange(row.id, day, value.toString())}
-                                />
-                              ) : (
-                                row[day]
-                              )}
+                              <HourInput
+                                value={row[day]}
+                                onChange={(value) => handleInputChange(row.id, day, value.toString())}
+                              />
                             </td>
                           ))}
                           <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            Pending
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            {editingRow === row.id ? (
-                              <button
-                                onClick={() => handleSave(row.id)}
-                                className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-                              >
-                                Save
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleEdit(row.id)}
-                                className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-                              >
-                                Edit
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => deleteRow(row.id)}
+                              className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                            >
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -309,14 +328,16 @@ const ClockInOut = () => {
                     type="button"
                     onClick={addRow}
                     className="mr-2 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+                    disabled={submitting}
                   >
                     Add Row
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+                    disabled={submitting}
                   >
-                    Submit
+                    {submitting ? 'Submitting...' : 'Submit All'}
                   </button>
                 </div>
               </form>
