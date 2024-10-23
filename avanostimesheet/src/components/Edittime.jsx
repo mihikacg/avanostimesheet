@@ -16,6 +16,20 @@ const EditTime = ({ selectedDate, timesheetEntries, fetchTimesheetEntries }) => 
     fetchTasks();
   }, []);
 
+  const calculateTotalHours = (entries, currentEditingEntry = null) => {
+    return entries.reduce((total, entry) => {
+      // If this is the entry being edited, use the new hours
+      if (currentEditingEntry && entry.TimeSheetE === currentEditingEntry.TimeSheetE) {
+        return total + (parseFloat(currentEditingEntry.Hours) || 0);
+      }
+      // Skip rejected entries and the entry being edited
+      if (entry.Status === 'Rejected' || entry.TimeSheetE === editingEntry?.TimeSheetE) {
+        return total;
+      }
+      return total + (parseFloat(entry.Hours) || 0);
+    }, 0);
+  };
+
   const fetchProjects = async () => {
     try {
       const response = await axios.get('http://localhost:4000/projects');
@@ -48,13 +62,45 @@ const EditTime = ({ selectedDate, timesheetEntries, fetchTimesheetEntries }) => 
 
   const handleEdit = (entry) => {
     setEditingEntry({ ...entry });
+    setError(null);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === 'Hours') {
+      const numValue = parseFloat(value);
+      if (numValue <= 0) {
+        setError('Hours must be greater than 0');
+        return;
+      }
+      setError(null);
+    }
+    
+    setEditingEntry({ ...editingEntry, [name]: value });
   };
 
   const handleSave = async () => {
     try {
+      const hours = parseFloat(editingEntry.Hours);
+      
+      if (hours <= 0) {
+        setError('Hours must be greater than 0');
+        return;
+      }
+
+      // Calculate total hours excluding the current entry
+      const otherEntriesHours = calculateTotalHours(timesheetEntries);
+      const totalHours = otherEntriesHours + hours;
+
+      if (totalHours > 40) {
+        setError('Cannot save changes. Total hours for the week would exceed 40 hours.');
+        return;
+      }
+
       await axios.put(`http://localhost:4000/timesheet/${editingEntry.TimeSheetE}`, editingEntry);
       setEditingEntry(null);
-      fetchTimesheetEntries(); // Use the function passed from parent to refresh data
+      fetchTimesheetEntries();
       setError(null);
     } catch (err) {
       console.error('Error saving entry:', err);
@@ -68,20 +114,14 @@ const EditTime = ({ selectedDate, timesheetEntries, fetchTimesheetEntries }) => 
       return;
     }
 
-    if (confirm('Are you sure you want to delete this entry?')) {
-      try {
-        await axios.delete(`http://localhost:4000/timesheet/${entryId}`);
-        fetchTimesheetEntries(); // Use the function passed from parent to refresh data
-        setError(null);
-      } catch (err) {
-        console.error('Error deleting entry:', err);
-        setError(`Failed to delete entry: ${err.response?.data?.message || err.message}`);
-      }
+    try {
+      await axios.delete(`http://localhost:4000/timesheet/${entryId}`);
+      fetchTimesheetEntries();
+      setError(null);
+    } catch (err) {
+      console.error('Error deleting entry:', err);
+      setError(`Failed to delete entry: ${err.response?.data?.message || err.message}`);
     }
-  };
-
-  const handleInputChange = (e) => {
-    setEditingEntry({ ...editingEntry, [e.target.name]: e.target.value });
   };
 
   if (loading) {
@@ -92,12 +132,14 @@ const EditTime = ({ selectedDate, timesheetEntries, fetchTimesheetEntries }) => 
     <div className="mt-8 bg-white shadow-xl rounded-lg overflow-hidden">
       <div className="p-6">
         <h2 className="text-4xl font-bold mb-8 text-black">Edit Existing Entries</h2>
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
             <strong className="font-bold mr-1">Error:</strong>
             <span className="block sm:inline">{error}</span>
           </div>
         )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -148,6 +190,8 @@ const EditTime = ({ selectedDate, timesheetEntries, fetchTimesheetEntries }) => 
                         name="Hours"
                         value={editingEntry.Hours}
                         onChange={handleInputChange}
+                        min="1"
+                        step="1"
                         className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                       />
                     ) : entry.Hours}
@@ -167,19 +211,35 @@ const EditTime = ({ selectedDate, timesheetEntries, fetchTimesheetEntries }) => 
                     {entry.Status === 'Pending' && (
                       editingEntry?.TimeSheetE === entry.TimeSheetE ? (
                         <>
-                          <button onClick={handleSave} className="text-green-600 hover:text-green-900 mr-2">
+                          <button 
+                            onClick={handleSave} 
+                            className="text-green-600 hover:text-green-900 mr-2"
+                            disabled={!!error}
+                          >
                             Save
                           </button>
-                          <button onClick={() => setEditingEntry(null)} className="text-gray-600 hover:text-gray-900">
+                          <button 
+                            onClick={() => {
+                              setEditingEntry(null);
+                              setError(null);
+                            }} 
+                            className="text-gray-600 hover:text-gray-900"
+                          >
                             Cancel
                           </button>
                         </>
                       ) : (
                         <>
-                          <button onClick={() => handleEdit(entry)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                          <button 
+                            onClick={() => handleEdit(entry)} 
+                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          >
                             <Pencil size={18} />
                           </button>
-                          <button onClick={() => handleDelete(entry.TimeSheetE)} className="text-red-600 hover:text-red-900">
+                          <button 
+                            onClick={() => handleDelete(entry.TimeSheetE)} 
+                            className="text-red-600 hover:text-red-900"
+                          >
                             <Trash2 size={18} />
                           </button>
                         </>

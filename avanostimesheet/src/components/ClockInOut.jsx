@@ -200,7 +200,6 @@ const ClockInOut = () => {
   };
 
   const deleteRow = (id) => {
-    if (window.confirm('Are you sure you want to delete this row?')) {
       setTableData(prevData => {
         const newData = prevData.filter(row => row.id !== id);
         
@@ -214,7 +213,6 @@ const ClockInOut = () => {
         
         return newData;
       });
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -304,194 +302,192 @@ const ClockInOut = () => {
       return () => clearTimeout(timer);
     }
   }, [error]);
-
-  return (
-    <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
-      <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
-        <div className="p-8">
-          {loading ? (
-            <div>Loading...</div> 
-          ) : !employeeId ? (
-            <div className="flex items-center justify-center h-full">
-              <h2 className="text-3xl font-bold text-black mt-20">Please select a user in the Navbar</h2>
-            </div>
-          ) : (
-            <>
-              <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
-
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
-                  <DatePicker
-                    selected={selectedDate}
-                    onChange={handleDateChange}
-                    filterDate={isMonday}
-                    dateFormat="MMMM d, yyyy"
-                    className="form-input px-4 py-2 border rounded-md"
-                    showPopperArrow={false}
-                  />
+  
+    return (
+      <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5 space-y-8">
+        {/* New top white box for date picker and hours */}
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden">
+          <div className="p-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Week:</label>
+                <DatePicker
+                  selected={selectedDate}
+                  onChange={handleDateChange}
+                  filterDate={isMonday}
+                  dateFormat="MMMM d, yyyy"
+                  className="form-input px-4 py-2 border rounded-md"
+                  showPopperArrow={false}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-600">Entered Hours</span>
+                    <div className="flex items-center mt-1">
+                      <span className="text-lg font-bold text-black">
+                        {calculateExistingHours(timesheetEntries).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-1">hrs</span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="flex items-center space-x-4">
-                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-600">Entered Hours</span>
-                      <div className="flex items-center mt-1">
-                        <span className="text-lg font-bold text-black">
-                          {calculateExistingHours(timesheetEntries).toFixed(1)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">hrs</span>
-                      </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-600">Current Hours</span>
+                    <div className="flex items-center mt-1">
+                      <span className="text-lg font-bold text-blue-600">
+                        {calculateCurrentHours(tableData).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-1">hrs</span>
                     </div>
                   </div>
-                  
-                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-600">Current Hours</span>
-                      <div className="flex items-center mt-1">
-                        <span className="text-lg font-bold text-blue-600">
-                          {calculateCurrentHours(tableData).toFixed(1)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">hrs</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-600">Total Hours</span>
-                      <div className="flex items-center mt-1">
-                        <span className={`text-lg font-bold ${(calculateExistingHours(timesheetEntries) + calculateCurrentHours(tableData)) > 40 ? 'text-red-600' : 'text-green-600'}`}>
-                          {(calculateExistingHours(timesheetEntries) + calculateCurrentHours(tableData)).toFixed(1)}
-                        </span>
-                        <span className="text-sm text-gray-500 ml-1">hrs</span>
-                      </div>
+                </div>
+                
+                <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-600">Total Hours</span>
+                    <div className="flex items-center mt-1">
+                      <span className={`text-lg font-bold ${(calculateExistingHours(timesheetEntries) + calculateCurrentHours(tableData)) > 40 ? 'text-red-600' : 'text-green-600'}`}>
+                        {(calculateExistingHours(timesheetEntries) + calculateCurrentHours(tableData)).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-1">hrs</span>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-md px-4 py-2 mb-4">
-                  <p className="text-red-800 font-medium">{error}</p>
-                </div>
-              )}
-
-              {successMessage && (
-                <div className="bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-4">
-                  <p className="text-green-800 font-medium flex items-center">
-                    <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    {successMessage}
-                  </p>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit}>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse border border-black">
-                    <thead>
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
-                          Project Name
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
-                          Task
-                        </th>
-                        {weekDates.map((date, index) => (
-                          <th key={index} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][index]} {formatDate(date)}
-                          </th>
-                        ))}
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tableData.map((row) => (
-                        <tr key={row.id}>
-                          <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            <select
-                              value={row.projectName}
-                              onChange={(e) => handleInputChange(row.id, 'projectName', e.target.value)}
-                              className="form-select w-full"
-                            >
-                              <option value="">Select Project</option>
-                              {projects.map((project) => (
-                                <option key={project.id} value={project.name}>
-                                  {project.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            <select
-                              value={row.task}
-                              onChange={(e) => handleInputChange(row.id, 'task', e.target.value)}
-                              className="form-select w-full"
-                            >
-                              <option value="">Select Task</option>
-                              {tasks.map((task) => (
-                                <option key={task.id} value={task.name}>
-                                  {task.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          {['mon', 'tue', 'wed', 'thu', 'fri'].map((day, index) => (
-                            <td key={index} className="px-6 py-4 whitespace-nowrap border border-black">
-                              <HourInput
-                                value={row[day]}
-                                onChange={(value) => handleInputChange(row.id, day, value.toString())}
-                              />
-                            </td>
-                          ))}
-                          <td className="px-6 py-4 whitespace-nowrap border border-black">
-                            <button
-                              type="button"
-                              onClick={() => deleteRow(row.id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    className="mr-2 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
-                    disabled={submitting}
-                  >
-                    Add Row
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
-                    disabled={submitting}
-                  >
-                    {submitting ? 'Submitting...' : 'Submit All'}
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
+            </div>
+          </div>
         </div>
-      </div>
-      <EditTime 
-        selectedDate={selectedDate} 
-        timesheetEntries={timesheetEntries}
-        fetchTimesheetEntries={fetchTimesheetEntries}
-      />
-    </div>
-  );
-};
+  
+        {/* Main Clock In/Out box */}
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[400px]">
+        <div className="p-8 flex flex-col h-full">
+          <h1 className="text-4xl font-bold mb-8 text-black">Clock In/Out</h1>
 
-export default ClockInOut;
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+              <p className="text-red-800 font-medium">{error}</p>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 rounded-md px-4 py-2 mb-4">
+              <p className="text-green-800 font-medium flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {successMessage}
+              </p>
+            </div>
+          )}
+  
+            <form onSubmit={handleSubmit}>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse border border-black">
+                  <thead>
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
+                        Project Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
+                        Task
+                      </th>
+                      {weekDates.map((date, index) => (
+                        <th key={index} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][index]} {formatDate(date)}
+                        </th>
+                      ))}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-black bg-gray-50">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableData.map((row) => (
+                      <tr key={row.id}>
+                        <td className="px-6 py-4 whitespace-nowrap border border-black">
+                          <select
+                            value={row.projectName}
+                            onChange={(e) => handleInputChange(row.id, 'projectName', e.target.value)}
+                            className="form-select w-full"
+                          >
+                            <option value="">Select Project</option>
+                            {projects.map((project) => (
+                              <option key={project.id} value={project.name}>
+                                {project.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap border border-black">
+                          <select
+                            value={row.task}
+                            onChange={(e) => handleInputChange(row.id, 'task', e.target.value)}
+                            className="form-select w-full"
+                          >
+                            <option value="">Select Task</option>
+                            {tasks.map((task) => (
+                              <option key={task.id} value={task.name}>
+                                {task.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        {['mon', 'tue', 'wed', 'thu', 'fri'].map((day, index) => (
+                          <td key={index} className="px-6 py-4 whitespace-nowrap border border-black">
+                            <HourInput
+                              value={row[day]}
+                              onChange={(value) => handleInputChange(row.id, day, value.toString())}
+                            />
+                          </td>
+                        ))}
+                        <td className="px-6 py-4 whitespace-nowrap border border-black">
+                          <button
+                            type="button"
+                            onClick={() => deleteRow(row.id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+  
+              <div className="border-t border-gray-200 pt-4">
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="mr-2 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+                  disabled={submitting}
+                >
+                  Add Entry
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Submitting...' : 'Submit'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+  
+        {/* Edit Time component remains at the bottom */}
+        <EditTime 
+          selectedDate={selectedDate} 
+          timesheetEntries={timesheetEntries}
+          fetchTimesheetEntries={fetchTimesheetEntries}
+        />
+      </div>
+    );
+  };
+  
+  export default ClockInOut;
