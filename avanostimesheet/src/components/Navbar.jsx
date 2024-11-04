@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/Avanos logo.png";
 import axios from 'axios';
 import { useUser } from '../UserContext';
 
-const Navbar = ({ onDashboardClick, onClockInOutClick, onApproveClick }) => {
+const Navbar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [userSelectOpen, setUserSelectOpen] = useState(false);
   const { selectedUser, userRole, setUser, clearUser, loading } = useUser();
@@ -32,7 +35,7 @@ const Navbar = ({ onDashboardClick, onClockInOutClick, onApproveClick }) => {
   const toggleUserSelect = () => setUserSelectOpen(!userSelectOpen);
 
   const selectUser = (user) => {
-    console.log(user)
+    console.log(user);
     setUser(user.name, user.id, user.role);
     setUserSelectOpen(false);
   };
@@ -40,27 +43,44 @@ const Navbar = ({ onDashboardClick, onClockInOutClick, onApproveClick }) => {
   const handleClearUser = () => {
     clearUser();
     setUserSelectOpen(false);
+    navigate('/');
   };
 
-  const handleNavItemClick = (item) => {
-    item.onClick();
+  const handleNavigation = (path) => {
+    navigate(path);
     setMobileDrawerOpen(false);
   };
 
+  const navItems = [
+    { 
+      label: "Dashboard", 
+      path: "/dashboard", 
+      role: "UA" 
+    },
+    { 
+      label: "Add Time", 
+      path: "/clock-in-out", 
+      role: "UA" 
+    },
+    { 
+      label: "Approve", 
+      path: "/approve", 
+      role: "A" 
+    }
+  ];
+
   const renderNavItems = () => {
-    const items = [
-      { label: "Dashboard", onClick: onDashboardClick, role: "UA" },
-      { label: "Add Time", onClick: onClockInOutClick, role: "UA" },
-      { label: "Approve", onClick: onApproveClick, role: "A" }
-    ];
-  
-    return items
+    return navItems
       .filter(item => userRole && item.role.includes(userRole))
       .map((item, index) => (
         <li key={index}>
           <button
-            className="text-black hover:text-gray-600 text-lg"
-            onClick={() => handleNavItemClick(item)}
+            className={`text-lg transition-colors ${
+              location.pathname === item.path
+                ? 'text-black font-semibold'
+                : 'text-gray-600 hover:text-black'
+            }`}
+            onClick={() => handleNavigation(item.path)}
           >
             {item.label}
           </button>
@@ -143,12 +163,42 @@ const Navbar = ({ onDashboardClick, onClockInOutClick, onApproveClick }) => {
             <ul className="text-center mt-16">
               {renderNavItems()}
             </ul>
-            {/* Mobile user selection menu */}
+            {/* Mobile user selection */}
+            <div className="mt-8 text-center">
+              <button
+                onClick={toggleUserSelect}
+                className="bg-black text-white py-3 px-5 rounded-md hover:bg-gray-800 text-lg font-medium inline-flex items-center"
+              >
+                {selectedUser ? `${selectedUser} ` : "Select User"}
+                <ChevronDown className="ml-2 h-5 w-5" />
+              </button>
+              {userSelectOpen && (
+                <div className="mt-2 bg-white border border-gray-300 rounded-md shadow-lg">
+                  {users.map((user, index) => (
+                    <button
+                      key={index}
+                      onClick={() => selectUser(user)}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      {user.name}
+                    </button>
+                  ))}
+                  {selectedUser && (
+                    <button
+                      onClick={handleClearUser}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
     </nav>
-  );  
+  );
 };
 
 export default Navbar;
