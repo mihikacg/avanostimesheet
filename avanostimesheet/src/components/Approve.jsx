@@ -116,7 +116,7 @@ const ActionButton = ({ onClick, label, color }) => {
   const approvedEntries = getSortedEntries(timesheetEntries.filter(entry => entry.Status === 'Approved'));
 
   const renderTable = (entries, title, showApproveButton = false) => (
-    <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px] mb-8">
+    <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[550px] mb-8">
       <div className="p-8">
         <h1 className="text-4xl font-bold mb-8 text-black">{title}</h1>
         <div className="overflow-x-auto shadow-md rounded-lg">
