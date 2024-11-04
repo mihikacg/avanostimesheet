@@ -15,7 +15,7 @@ router.use(connectionErrorHandler);
 // Test database connection
 router.get('/test-connection', async (req, res) => {
   try {
-    const [result] = await executeQuery('SELECT 1');
+    const result = await executeQuery('SELECT 1 AS result');
     res.json({ status: 'success', message: 'Database connection is working' });
   } catch (error) {
     res.status(500).json({ 
@@ -29,7 +29,7 @@ router.get('/test-connection', async (req, res) => {
 // Get all users
 router.get('/users', async (req, res) => {
   try {
-    const rows = await executeQuery('SELECT * FROM Users');
+    const rows = await executeQuery('SELECT * FROM [hcp0nedb].[dbo].[tbl_TS_Users]');
     res.json(rows);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -40,7 +40,7 @@ router.get('/users', async (req, res) => {
 // Get all timesheet entries
 router.get('/timesheet', async (req, res) => {
   try {
-    const rows = await executeQuery('SELECT * FROM TimeSheetEntry');
+    const rows = await executeQuery('SELECT * FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry]');
     res.json(rows);
   } catch (error) {
     console.error('Error fetching timesheet entries:', error);
@@ -63,11 +63,11 @@ router.get('/timesheet/:employeeId', async (req, res) => {
         tse.*,
         p.Project_Name,
         t.Task_Name
-       FROM TimeSheetEntry tse
-       LEFT JOIN Projects p ON tse.Project_ID = p.Project_ID
-       LEFT JOIN Tasks t ON tse.Task_ID = t.Task_ID
-       WHERE tse.Employee_ID = ? 
-       AND DATE(tse.Week_Start) = DATE(?)`,
+       FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] tse
+       LEFT JOIN [hcp0nedb].[dbo].[tbl_TS_Projects] p ON tse.Project_ID = p.Project_ID
+       LEFT JOIN [hcp0nedb].[dbo].[tbl_TS_Tasks] t ON tse.Task_ID = t.Task_ID
+       WHERE tse.Employee_ID = @param0 
+       AND CONVERT(DATE, tse.Week_Start) = CONVERT(DATE, @param1)`,
       [employeeId, weekStart]
     );
 
@@ -87,7 +87,10 @@ router.get('/approval-timesheet/:approverID', async (req, res) => {
     }
 
     const rows = await executeQuery(
-      'SELECT tse.*, u.First_name, u.Last_name FROM TimeSheetEntry tse JOIN Users u ON tse.Employee_ID = u.Employee_id WHERE u.ApproverID = ?',
+      `SELECT tse.*, u.First_name, u.Last_name 
+       FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] tse 
+       JOIN [hcp0nedb].[dbo].[tbl_TS_Users] u ON tse.Employee_ID = u.Employee_id 
+       WHERE u.ApproverID = @param0`,
       [approverID]
     );
     res.json(rows);
@@ -100,7 +103,7 @@ router.get('/approval-timesheet/:approverID', async (req, res) => {
 // Get all projects
 router.get('/projects', async (req, res) => {
   try {
-    const rows = await executeQuery('SELECT * FROM Projects');
+    const rows = await executeQuery('SELECT * FROM [hcp0nedb].[dbo].[tbl_TS_Projects]');
     res.json(rows);
   } catch (error) {
     console.error('Error fetching projects:', error);
@@ -111,7 +114,7 @@ router.get('/projects', async (req, res) => {
 // Get all tasks
 router.get('/tasks', async (req, res) => {
   try {
-    const rows = await executeQuery('SELECT * FROM Tasks');
+    const rows = await executeQuery('SELECT * FROM [hcp0nedb].[dbo].[tbl_TS_Tasks]');
     res.json(rows);
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -128,20 +131,35 @@ router.post('/timesheet', async (req, res) => {
       return res.status(400).json({ error: 'No valid entries to save' });
     }
 
+    // Get the current maximum TimeSheetEntry_ID value
+    const maxResult = await executeQuery('SELECT ISNULL(MAX(TimeSheetEntry_ID), 0) as maxId FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry]');
+    let nextId = maxResult[0].maxId + 1;
+
+    // Delete existing InProgress entries for this week and employee
+    const weekStart = entries[0].Week_Start;
+    const employeeId = entries[0].Employee_ID;
+    await executeQuery(
+      'DELETE FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] WHERE Week_Start = @param0 AND Employee_ID = @param1 AND Status = @param2',
+      [weekStart, employeeId, 'InProgress']
+    );
+
     // Prepare queries for transaction
     const queries = entries
       .filter(entry => entry.Hours > 0)
       .map(entry => ({
-        query: 'INSERT INTO TimeSheetEntry (Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        query: `INSERT INTO [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] 
+                (TimeSheetEntry_ID, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) 
+                VALUES (@param0, @param1, @param2, @param3, @param4, @param5, @param6, @param7, @param8)`,
         params: [
+          nextId++,
           entry.Project_ID,
           entry.Task_ID,
           entry.Week_Start,
           entry.Entry_Date,
           entry.Hours,
           entry.Employee_ID,
-          entry.Comments,
-          entry.Status
+          entry.Comments || '',
+          'InProgress'
         ]
       }));
 
@@ -158,15 +176,15 @@ router.post('/timesheet', async (req, res) => {
 });
 
 // Approve timesheet entry
-router.post('/approve-timesheet/:timeSheetE', async (req, res) => {
+router.post('/approve-timesheet/:timeSheetEntryId', async (req, res) => {
   try {
-    const { timeSheetE } = req.params;
+    const { timeSheetEntryId } = req.params;
     const result = await executeQuery(
-      'UPDATE TimeSheetEntry SET Status = ? WHERE TimeSheetE = ? AND Status = ?',
-      ['Approved', timeSheetE, 'Pending']
+      'UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] SET Status = @param0 WHERE TimeSheetEntry_ID = @param1 AND Status = @param2',
+      ['Approved', timeSheetEntryId, 'InProgress']
     );
 
-    if (result.affectedRows === 0) {
+    if (!result.rowsAffected[0]) {
       return res.status(404).json({ message: 'Timesheet entry not found or already approved' });
     }
 
@@ -178,15 +196,15 @@ router.post('/approve-timesheet/:timeSheetE', async (req, res) => {
 });
 
 // Reject timesheet entry
-router.post('/reject-timesheet/:timeSheetE', async (req, res) => {
+router.post('/reject-timesheet/:timeSheetEntryId', async (req, res) => {
   try {
-    const { timeSheetE } = req.params;
+    const { timeSheetEntryId } = req.params;
     const result = await executeQuery(
-      'UPDATE TimeSheetEntry SET Status = ? WHERE TimeSheetE = ? AND Status = ?',
-      ['Rejected', timeSheetE, 'Pending']
+      'UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] SET Status = @param0 WHERE TimeSheetEntry_ID = @param1 AND Status = @param2',
+      ['Rejected', timeSheetEntryId, 'InProgress']
     );
 
-    if (result.affectedRows === 0) {
+    if (!result.rowsAffected[0]) {
       return res.status(404).json({ message: 'Timesheet entry not found or already rejected' });
     }
 
@@ -202,11 +220,11 @@ router.delete('/timesheet/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await executeQuery(
-      'DELETE FROM TimeSheetEntry WHERE TimeSheetE = ?',
+      'DELETE FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] WHERE TimeSheetEntry_ID = @param0',
       [id]
     );
 
-    if (result.affectedRows === 0) {
+    if (!result.rowsAffected[0]) {
       return res.status(404).json({ message: 'Timesheet entry not found' });
     }
 
@@ -223,17 +241,23 @@ router.put('/timesheet/:id', async (req, res) => {
     const { id } = req.params;
     const { Project_ID, Task_ID, Hours, Employee_ID, Entry_Date, Status } = req.body;
 
-    // Validate input
     if (!Project_ID || !Task_ID || !Hours || !Employee_ID || !Entry_Date || !Status) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
     const result = await executeQuery(
-      'UPDATE TimeSheetEntry SET Project_ID = ?, Task_ID = ?, Hours = ?, Employee_ID = ?, Entry_Date = ?, Status = ? WHERE TimeSheetE = ?',
+      `UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] 
+       SET Project_ID = @param0, 
+           Task_ID = @param1, 
+           Hours = @param2, 
+           Employee_ID = @param3, 
+           Entry_Date = @param4, 
+           Status = @param5 
+       WHERE TimeSheetEntry_ID = @param6`,
       [Project_ID, Task_ID, Hours, Employee_ID, Entry_Date, Status, id]
     );
 
-    if (result.affectedRows === 0) {
+    if (!result.rowsAffected[0]) {
       return res.status(404).json({ message: 'Timesheet entry not found' });
     }
 
@@ -246,19 +270,19 @@ router.put('/timesheet/:id', async (req, res) => {
 
 // Error handling utility function
 const handleQueryError = (error, res, action) => {
-  if (error.code === 'ECONNRESET') {
+  if (error.code === 'ETIMEOUT') {
     res.status(500).json({
-      error: 'Database connection was reset. Please try again.',
+      error: 'Database request timed out. Please try again.',
       details: `Error occurred while ${action}.`
     });
-  } else if (error.code === 'PROTOCOL_CONNECTION_LOST') {
+  } else if (error.code === 'EREQUEST') {
     res.status(500).json({
-      error: 'Database connection was lost. Please try again.',
+      error: 'Invalid database request. Please check your input.',
       details: `Error occurred while ${action}.`
     });
-  } else if (error.code === 'ER_CON_COUNT_ERROR') {
+  } else if (error.code === 'ECONNRESET') {
     res.status(500).json({
-      error: 'Database has too many connections. Please try again later.',
+      error: 'Connection was reset. Please try again.',
       details: `Error occurred while ${action}.`
     });
   } else {
