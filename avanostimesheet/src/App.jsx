@@ -6,10 +6,22 @@ import Dashboard from "./components/Dashboard";
 import ClockInOut from "./components/ClockInOut";
 import Approve from "./components/Approve";
 
+import { useIsAuthenticated } from '@azure/msal-react';
+import { SignInButton } from './components/SignInButton';
+import { SignOutButton } from './components/SignOutButton';
+import { PublicClientApplication } from "@azure/msal-browser";
+import { MsalProvider } from "@azure/msal-react";
+import { msalConfig } from "./UserContext"; // assuming msalConfig is properly set up
+
+const msalInstance = new PublicClientApplication(msalConfig);
+
+
 const AppContent = () => {
   const { selectedUser, userRole, loading } = useUser();
   const navigate = useNavigate();
-
+  // const isAuthenticated = useIsAuthenticated();
+  const isAuthenticated = true;
+  
   const handleNavigation = (view) => {
     switch(view) {
       case 'dashboard':
@@ -56,9 +68,12 @@ const AppContent = () => {
         onApproveClick={() => handleNavigation('approve')}
       />
       <div className="flex-grow pt-20 px-4">
-        {!selectedUser ? (
-          <div className="flex items-center justify-center h-full">
-            <h2 className="text-3xl font-bold text-black mt-20">Please select a user</h2>
+        {/* FIX ME */}
+        {!isAuthenticated ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <h2 className="text-3xl text-black mt-60">Welcome to the Avanos Timesheet System. </h2>
+            <h3 className="text-3xl font-bold text-black mt-10">  Please sign in to continue. </h3>
+            {/* <h3 className="text-3xl font-bold text-black mt-10">  {String(isAuthenticated)} </h3> */}
           </div>
         ) : (
           <Routes>
@@ -89,11 +104,13 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <UserProvider>
+    <MsalProvider instance={msalInstance}>
+      <UserProvider>
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
     </UserProvider>
+    </MsalProvider>
   );
 };
 

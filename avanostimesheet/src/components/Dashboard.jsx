@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { ChevronDown } from 'lucide-react';
 import { useUser } from '../UserContext';
-
+import { useIsAuthenticated } from '@azure/msal-react';
+import { useMsal } from "@azure/msal-react";
 
 
 const Dashboard = () => {
@@ -16,6 +17,9 @@ const Dashboard = () => {
   const dropdownRef = useRef(null);
   const [dropdownPosition, setDropdownPosition] = useState('bottom');
   const { employeeId } = useUser();
+  const { accounts } = useMsal();
+  // const isAuthenticated = accounts.length > 0;
+  const isAuthenticated = true;
 
   function getCurrentWeek() {
     const now = new Date();
@@ -154,109 +158,121 @@ const Dashboard = () => {
 
   const currentWeekDates = getWeekDates(selectedWeek.year, selectedWeek.week);
 
-  return (
-    <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
-      <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
-        <div className="p-8">
-          <h1 className="text-4xl font-bold mb-8 text-black">Dashboard</h1>
-          
-          <div className="mb-8">
-            <div className="relative w-full lg:w-80" ref={dropdownRef}>
-              <button 
-                onClick={toggleDropdown}
-                className="flex items-center justify-between w-full px-5 py-3 text-lg text-black bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <span>{formatDateRange(currentWeekDates.start, currentWeekDates.end)}</span>
-                <ChevronDown className="w-6 h-6 ml-2" />
-              </button>
-              {isDropdownOpen && (
-                <div 
-                  className={`absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg overflow-y-auto max-h-80 ${
-                    dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
-                  }`}
-                >
-                  {weekOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => changeWeek(option.value)}
-                      className="block w-full text-left px-5 py-3 text-base text-black hover:bg-gray-100"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto shadow-md rounded-lg">
-            <table className="min-w-full leading-normal">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
-                    Project Name
-                  </th>
-                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
-                    Task Name
-                  </th>
-                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
-                    Hours Worked
-                  </th>
-                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {timesheetEntries.map((entry) => (
-                  <tr key={entry.TimeSheetE} className="hover:bg-gray-50">
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-black whitespace-no-wrap">{projects[entry.Project_ID] || 'Unknown Project'}</p>
-                    </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-black whitespace-no-wrap">{tasks[entry.Task_ID] || 'Unknown Task'}</p>
-                    </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-black whitespace-no-wrap">{entry.Hours} hours</p>
-                    </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <p className="text-black whitespace-no-wrap">{new Date(entry.Entry_Date).toLocaleDateString()}</p>
-                    </td>
-                    <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${entry.Status === 'Approved' ? 'bg-green-100 text-green-800' : 
-                          entry.Status === 'Rejected' ? 'bg-red-100 text-red-800' : 
-                          'bg-yellow-100 text-yellow-800'}`}>
-                        {entry.Status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50">
-                  <td colSpan="5" className="px-5 py-3 border-b border-gray-200 text-sm">
-                    <div className="flex justify-center items-center">
-                      <p className="text-black">
-                        Approved: <span className="font-semibold text-green-500">{approvedHours} hours</span>
-                        <span className="mx-2">|</span>
-                        Pending: <span className="font-semibold text-yellow-500">{pendingHours} hours</span>
-                        <span className="mx-2">|</span>
-                        Rejected: <span className="font-semibold text-red-500">{rejectedHours} hours</span>
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+  if (!isAuthenticated) {
+    return (
+      <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
+          <div className="p-8">
+            <h1 className="text-3xl items-center mb-8 text-black">Please sign in to view the dashboard.</h1>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  } else {
+    return (
+      <div className="class=max-w-screen-2xl mx-auto px-12 py-20 min-h-screen mt-5">
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden min-h-[750px]">
+          <div className="p-8">
+            <h1 className="text-4xl font-bold mb-8 text-black">Dashboard</h1>
+            
+            <div className="mb-8">
+              <div className="relative w-full lg:w-80" ref={dropdownRef}>
+                <button 
+                  onClick={toggleDropdown}
+                  className="flex items-center justify-between w-full px-5 py-3 text-lg text-black bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <span>{formatDateRange(currentWeekDates.start, currentWeekDates.end)}</span>
+                  <ChevronDown className="w-6 h-6 ml-2" />
+                </button>
+                {isDropdownOpen && (
+                  <div 
+                    className={`absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg overflow-y-auto max-h-80 ${
+                      dropdownPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+                    }`}
+                  >
+                    {weekOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => changeWeek(option.value)}
+                        className="block w-full text-left px-5 py-3 text-base text-black hover:bg-gray-100"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+  
+            <div className="overflow-x-auto shadow-md rounded-lg">
+              <table className="min-w-full leading-normal">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                      Project Name
+                    </th>
+                    <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                      Task Name
+                    </th>
+                    <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                      Hours Worked
+                    </th>
+                    <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-5 py-4 border-b-2 border-gray-200 text-left text-sm font-semibold text-black uppercase tracking-wider">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timesheetEntries.map((entry) => (
+                    <tr key={entry.TimeSheetE} className="hover:bg-gray-50">
+                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p className="text-black whitespace-no-wrap">{projects[entry.Project_ID] || 'Unknown Project'}</p>
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p className="text-black whitespace-no-wrap">{tasks[entry.Task_ID] || 'Unknown Task'}</p>
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p className="text-black whitespace-no-wrap">{entry.Hours} hours</p>
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p className="text-black whitespace-no-wrap">{new Date(entry.Entry_Date).toLocaleDateString()}</p>
+                      </td>
+                      <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${entry.Status === 'Approved' ? 'bg-green-100 text-green-800' : 
+                            entry.Status === 'Rejected' ? 'bg-red-100 text-red-800' : 
+                            'bg-yellow-100 text-yellow-800'}`}>
+                          {entry.Status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50">
+                    <td colSpan="5" className="px-5 py-3 border-b border-gray-200 text-sm">
+                      <div className="flex justify-center items-center">
+                        <p className="text-black">
+                          Approved: <span className="font-semibold text-green-500">{approvedHours} hours</span>
+                          <span className="mx-2">|</span>
+                          Pending: <span className="font-semibold text-yellow-500">{pendingHours} hours</span>
+                          <span className="mx-2">|</span>
+                          Rejected: <span className="font-semibold text-red-500">{rejectedHours} hours</span>
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default Dashboard;
