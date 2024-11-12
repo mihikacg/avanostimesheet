@@ -302,16 +302,16 @@ const Navbar = () => {
             <img className="h-12 w-auto mr-3" src={logo} alt="Logo" />
             <span className="text-2xl font-semibold tracking-tight text-black">Time Sheet</span>
           </div>
-
+  
           {/* Conditionally render navigation items */}
           {isAuthenticated && (
-            <div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2">
-              <ul className="flex space-x-12">
+            <div className="flex ml-16">
+              <ul className="flex space-x-8">
                 {renderNavItems()}
               </ul>
             </div>
           )}
-
+  
           <div className="flex items-center">
             {isAuthenticated ? (
               <div className="hidden lg:block relative">
@@ -356,7 +356,7 @@ const Navbar = () => {
             ) : (
               <SignInButton />
             )}
-
+  
             <div className="lg:hidden ml-4">
               <button onClick={toggleNavbar} aria-label={mobileDrawerOpen ? "Close menu" : "Open menu"}>
                 <Menu className="text-black w-8 h-8" />
@@ -364,7 +364,7 @@ const Navbar = () => {
             </div>
           </div>
         </div>
-
+  
         {mobileDrawerOpen && isAuthenticated && (
           <div className="fixed right-0 top-0 z-20 bg-white w-full h-full p-12 flex flex-col lg:hidden">
             <button
@@ -411,7 +411,7 @@ const Navbar = () => {
         )}
       </div>
     </nav>
-  );
+  );  
 };
 
 export default Navbar;
