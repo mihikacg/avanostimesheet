@@ -87,10 +87,18 @@ router.get('/approval-timesheet/:approverID', async (req, res) => {
     }
 
     const rows = await executeQuery(
-      `SELECT tse.*, u.First_name, u.Last_name 
+      `SELECT 
+        tse.*, 
+        u.First_name, 
+        u.Last_name,
+        p.Project_Name,
+        t.Task_Name
        FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] tse 
        JOIN [hcp0nedb].[dbo].[tbl_TS_Users] u ON tse.Employee_ID = u.Employee_id 
-       WHERE u.ApproverID = @param0`,
+       LEFT JOIN [hcp0nedb].[dbo].[tbl_TS_Projects] p ON tse.Project_ID = p.Project_ID
+       LEFT JOIN [hcp0nedb].[dbo].[tbl_TS_Tasks] t ON tse.Task_ID = t.Task_ID
+       WHERE u.ApproverID = @param0
+       ORDER BY tse.Entry_Date DESC`,
       [approverID]
     );
     res.json(rows);
@@ -122,7 +130,8 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
-// Save timesheet entries
+
+
 router.post('/timesheet', async (req, res) => {
   try {
     const entries = req.body;
@@ -131,27 +140,14 @@ router.post('/timesheet', async (req, res) => {
       return res.status(400).json({ error: 'No valid entries to save' });
     }
 
-    // Get the current maximum TimeSheetEntry_ID value
-    const maxResult = await executeQuery('SELECT ISNULL(MAX(TimeSheetEntry_ID), 0) as maxId FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry]');
-    let nextId = maxResult[0].maxId + 1;
-
-    // Delete existing InProgress entries for this week and employee
-    const weekStart = entries[0].Week_Start;
-    const employeeId = entries[0].Employee_ID;
-    await executeQuery(
-      'DELETE FROM [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] WHERE Week_Start = @param0 AND Employee_ID = @param1 AND Status = @param2',
-      [weekStart, employeeId, 'InProgress']
-    );
-
-    // Prepare queries for transaction
+    // Prepare queries for transaction - just insert new entries
     const queries = entries
       .filter(entry => entry.Hours > 0)
       .map(entry => ({
-        query: `INSERT INTO [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] 
-                (TimeSheetEntry_ID, Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status) 
-                VALUES (@param0, @param1, @param2, @param3, @param4, @param5, @param6, @param7, @param8)`,
+        query: `INSERT INTO [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry]
+                (Project_ID, Task_ID, Week_Start, Entry_Date, Hours, Employee_ID, Comments, Status)
+                VALUES (@param0, @param1, @param2, @param3, @param4, @param5, @param6, @param7)`,
         params: [
-          nextId++,
           entry.Project_ID,
           entry.Task_ID,
           entry.Week_Start,
@@ -159,7 +155,7 @@ router.post('/timesheet', async (req, res) => {
           entry.Hours,
           entry.Employee_ID,
           entry.Comments || '',
-          'InProgress'
+          entry.Status
         ]
       }));
 
@@ -175,20 +171,28 @@ router.post('/timesheet', async (req, res) => {
   }
 });
 
-// Approve timesheet entry
 router.post('/approve-timesheet/:timeSheetEntryId', async (req, res) => {
   try {
-    const { timeSheetEntryId } = req.params;
+    const timeSheetEntryId = req.params.timeSheetEntryId;
     const result = await executeQuery(
-      'UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] SET Status = @param0 WHERE TimeSheetEntry_ID = @param1 AND Status = @param2',
+      `UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] 
+       SET Status = @param0 
+       WHERE TimeSheetEntry_ID = @param1 
+       AND Status = @param2`,
       ['Approved', timeSheetEntryId, 'InProgress']
     );
 
     if (!result.rowsAffected[0]) {
-      return res.status(404).json({ message: 'Timesheet entry not found or already approved' });
+      return res.status(404).json({ 
+        message: 'Timesheet entry not found or not in InProgress status' 
+      });
     }
 
-    res.status(200).json({ message: 'Timesheet entry approved successfully' });
+    res.json({ 
+      success: true,
+      message: 'Timesheet entry approved successfully',
+      timeSheetEntryId: timeSheetEntryId
+    });
   } catch (error) {
     console.error('Error approving timesheet:', error);
     handleQueryError(error, res, 'approving timesheet');
@@ -198,17 +202,26 @@ router.post('/approve-timesheet/:timeSheetEntryId', async (req, res) => {
 // Reject timesheet entry
 router.post('/reject-timesheet/:timeSheetEntryId', async (req, res) => {
   try {
-    const { timeSheetEntryId } = req.params;
+    const timeSheetEntryId = req.params.timeSheetEntryId;
     const result = await executeQuery(
-      'UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] SET Status = @param0 WHERE TimeSheetEntry_ID = @param1 AND Status = @param2',
+      `UPDATE [hcp0nedb].[dbo].[tbl_TS_TimeSheetEntry] 
+       SET Status = @param0 
+       WHERE TimeSheetEntry_ID = @param1 
+       AND Status = @param2`,
       ['Rejected', timeSheetEntryId, 'InProgress']
     );
 
     if (!result.rowsAffected[0]) {
-      return res.status(404).json({ message: 'Timesheet entry not found or already rejected' });
+      return res.status(404).json({ 
+        message: 'Timesheet entry not found or not in InProgress status' 
+      });
     }
 
-    res.status(200).json({ message: 'Timesheet entry rejected successfully' });
+    res.json({ 
+      success: true,
+      message: 'Timesheet entry rejected successfully',
+      timeSheetEntryId: timeSheetEntryId
+    });
   } catch (error) {
     console.error('Error rejecting timesheet:', error);
     handleQueryError(error, res, 'rejecting timesheet');
