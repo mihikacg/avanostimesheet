@@ -1,14 +1,14 @@
 const sql = require('mssql');
 
 const dbConfig = {
-  server: 'AZAMAS16.internal.aventcorp.com', // your SQL Server instance
+  server: 'AZAMAS16.internal.aventcorp.com',
   database: 'hcp0nedb',
   user: 'hcp0neadm',
   password: 'rpMln6JMxLrS9tDi',
-  port: 1433, // SQL Server default port
+  port: 1433,
   options: {
-    encrypt: false, // Set to true if you're on Azure
-    trustServerCertificate: true, // Set to true if using self-signed cert
+    encrypt: false,
+    trustServerCertificate: true,
     enableArithAbort: true
   },
   pool: {
@@ -69,13 +69,14 @@ const executeQuery = async (query, params = []) => {
 
 // Execute a transaction with multiple queries
 const executeTransaction = async (queries) => {
+  let transaction = null;
   try {
     await poolConnect; // Ensure pool is ready
-    const transaction = new sql.Transaction(pool);
+    transaction = new sql.Transaction(pool);
     await transaction.begin();
 
     const results = [];
-    for (const { query, params } of queries) {
+    for (const { query, params = [] } of queries) {
       const request = new sql.Request(transaction);
       
       // Add parameters to the request
@@ -84,6 +85,19 @@ const executeTransaction = async (queries) => {
       });
       
       const result = await request.query(query);
+      
+      // Adjust dates in the results if needed
+      if (result.recordset) {
+        result.recordset.forEach(row => {
+          if (row.Entry_Date) {
+            row.Entry_Date = adjustToLocalTime(row.Entry_Date);
+          }
+          if (row.Week_Start) {
+            row.Week_Start = adjustToLocalTime(row.Week_Start);
+          }
+        });
+      }
+      
       results.push(result);
     }
 
@@ -93,6 +107,7 @@ const executeTransaction = async (queries) => {
     if (transaction) {
       try {
         await transaction.rollback();
+        console.error('Transaction rolled back due to error:', error);
       } catch (rollbackError) {
         console.error('Error rolling back transaction:', rollbackError);
       }
