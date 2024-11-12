@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import HourInput from './HourInput';
@@ -7,42 +7,48 @@ import EditTime from './Edittime';
 import axios from 'axios';
 
 const ClockInOut = () => {
+  // =========== State Declarations ===========
+  const { employeeId, loading } = useUser();
   const [selectedDate, setSelectedDate] = useState(getMonday(new Date()));
   const [weekDates, setWeekDates] = useState([]);
   const [tableData, setTableData] = useState([]);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const { employeeId, loading } = useUser();
   const [timesheetEntries, setTimesheetEntries] = useState([]);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
-  useEffect(() => {
-    fetchProjects();
-    fetchTasks();
-  }, []);
+  // =========== Helper Functions ===========
+  function getMonday(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  }
 
-  useEffect(() => {
-    updateWeekDates(selectedDate);
-    fetchTimesheetEntries();
-  }, [selectedDate, employeeId]);
+  const isMonday = (date) => date.getDay() === 1;
 
-  const calculateExistingHours = (entries) => {
+  const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // =========== Calculation Functions ===========
+  const calculateExistingHours = useCallback((entries) => {
     return entries
       .filter(entry => entry.Status !== 'Rejected')
       .reduce((total, entry) => total + (parseFloat(entry.Hours) || 0), 0);
-  };
+  }, []);
 
-  const calculateCurrentHours = (data) => {
+  const calculateCurrentHours = useCallback((data) => {
     return data.reduce((total, row) => {
       return total + ['mon', 'tue', 'wed', 'thu', 'fri'].reduce((dayTotal, day) => {
         return dayTotal + (parseFloat(row[day]) || 0);
       }, 0);
     }, 0);
-  };
+  }, []);
 
-  const fetchProjects = async () => {
+  // =========== Data Fetching Functions ===========
+  const fetchProjects = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:4000/projects');
       const projectList = response.data.map(project => ({
@@ -54,9 +60,9 @@ const ClockInOut = () => {
       console.error('Error fetching projects:', error);
       setError('Failed to fetch projects');
     }
-  };
+  }, []);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:4000/tasks');
       const taskList = response.data.map(task => ({
@@ -68,30 +74,25 @@ const ClockInOut = () => {
       console.error('Error fetching tasks:', error);
       setError('Failed to fetch tasks');
     }
-  };
+  }, []);
 
-  const fetchTimesheetEntries = async () => {
-    if (!employeeId) return;
+  const fetchTimesheetEntries = useCallback(async () => {
+    if (!employeeId || !selectedDate) return;
+    
     try {
       const weekStart = selectedDate.toISOString().split('T')[0];
       const response = await axios.get(`http://localhost:4000/timesheet/${employeeId}`, {
         params: { weekStart }
       });
-      setTimesheetEntries(response.data);
+      setTimesheetEntries(response.data || []);
     } catch (error) {
       console.error('Error fetching timesheet entries:', error);
       setError('Failed to fetch timesheet entries');
     }
-  };
+  }, [employeeId, selectedDate]);
 
-  function getMonday(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
-  }
-
-  const updateWeekDates = (date) => {
+  // =========== Update Functions ===========
+  const updateWeekDates = useCallback((date) => {
     const monday = getMonday(date);
     const weekDays = [];
     for (let i = 0; i < 5; i++) {
@@ -101,47 +102,76 @@ const ClockInOut = () => {
     }
     setWeekDates(weekDays);
     setTableData([]); // Clear the table when week changes
-  };
+  }, []);
 
-  const handleDateChange = (date) => {
+  // =========== Validation Functions ===========
+  const validateRow = useCallback((row) => {
+    if (!row.projectName && !row.task) {
+      return 'Project Name and Task must be selected.';
+    } else if (!row.projectName) {
+      return 'Project Name must be selected.';
+    } else if (!row.task) {
+      return 'Task must be selected.';
+    }
+    
+    const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
+      day => parseFloat(row[day]) > 0
+    );
+    
+    if (!hasHours) {
+      return 'At least one day must have hours greater than 0';
+    }
+    
+    return null;
+  }, []);
+
+  const getRowError = useCallback((row) => {
+    if (!row.projectName || !row.task) {
+      return 'Project Name and Task must be selected.';
+    }
+    
+    const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
+      day => parseFloat(row[day]) > 0
+    );
+    
+    if (!hasHours) {
+      return 'At least one day must have hours greater than 0.';
+    }
+    
+    return null;
+  }, []);
+
+  // =========== Event Handlers ===========
+  const handleDateChange = useCallback((date) => {
     setSelectedDate(getMonday(date));
     setError('');
     setSuccessMessage('');
-  };
+  }, []);
 
-  const isMonday = (date) => date.getDay() === 1;
-
-  const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-  const handleInputChange = (id, field, value) => {
+  const handleInputChange = useCallback((id, field, value) => {
     setTableData((prevData) => {
       const newData = prevData.map((row) => 
         row.id === id ? { ...row, [field]: value } : row
       );
       
-      // Calculate total hours
       const existingHours = calculateExistingHours(timesheetEntries);
       const currentHours = calculateCurrentHours(newData);
       const totalHours = existingHours + currentHours;
 
       if (totalHours > 40) {
         setError('Total hours for the week cannot exceed 40 hours');
-      } else {
-        // Clear error if it was a 40-hour error
-        if (error === 'Total hours for the week cannot exceed 40 hours') {
-          setError('');
-        }
+      } else if (error === 'Total hours for the week cannot exceed 40 hours') {
+        setError('');
       }
       
       return newData;
     });
-  };
+  }, [calculateExistingHours, calculateCurrentHours, timesheetEntries, error]);
 
-  const addRow = () => {
+  const addRow = useCallback(() => {
     setError('');
     setSuccessMessage('');
 
-    // Calculate total hours including the new empty row
     const existingHours = calculateExistingHours(timesheetEntries);
     const currentHours = calculateCurrentHours(tableData);
 
@@ -160,60 +190,24 @@ const ClockInOut = () => {
       thu: '0',
       fri: '0'
     };
-    setTableData([...tableData, newRow]);
-  };
+    setTableData(prev => [...prev, newRow]);
+  }, [calculateExistingHours, calculateCurrentHours, timesheetEntries, tableData]);
 
-  const validateRow = (row) => {
-    if (!row.projectName && !row.task) {
-      return 'Project Name and Task must be selected.';
-    } else if (!row.projectName) {
-      return 'Project Name must be selected.';
-    } else if (!row.task) {
-      return 'Task must be selected.';
-    }
-    
-    const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
-      day => parseFloat(row[day]) > 0
-    );
-    
-    if (!hasHours) {
-      return 'At least one day must have hours greater than 0';
-    }
-    
-    return null;
-  };
-
-  const getRowError = (row) => {
-    if (!row.projectName || !row.task) {
-      return 'Project Name and Task must be selected.';
-    }
-    
-    const hasHours = ['mon', 'tue', 'wed', 'thu', 'fri'].some(
-      day => parseFloat(row[day]) > 0
-    );
-    
-    if (!hasHours) {
-      return 'At least one day must have hours greater than 0.';
-    }
-    
-    return null;
-  };
-
-  const deleteRow = (id) => {
-      setTableData(prevData => {
-        const newData = prevData.filter(row => row.id !== id);
-        
-        if (error === 'Total hours for the week cannot exceed 40 hours') {
-          const existingHours = calculateExistingHours(timesheetEntries);
-          const currentHours = calculateCurrentHours(newData);
-          if (existingHours + currentHours <= 40) {
-            setError('');
-          }
+  const deleteRow = useCallback((id) => {
+    setTableData(prevData => {
+      const newData = prevData.filter(row => row.id !== id);
+      
+      if (error === 'Total hours for the week cannot exceed 40 hours') {
+        const existingHours = calculateExistingHours(timesheetEntries);
+        const currentHours = calculateCurrentHours(newData);
+        if (existingHours + currentHours <= 40) {
+          setError('');
         }
-        
-        return newData;
-      });
-  };
+      }
+      
+      return newData;
+    });
+  }, [calculateExistingHours, calculateCurrentHours, timesheetEntries, error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -223,7 +217,6 @@ const ClockInOut = () => {
       return;
     }
 
-    // Check each row for errors
     for (const row of tableData) {
       const rowError = getRowError(row);
       if (rowError) {
@@ -232,7 +225,6 @@ const ClockInOut = () => {
       }
     }
 
-    // Check total hours
     const existingHours = calculateExistingHours(timesheetEntries);
     const currentHours = calculateCurrentHours(tableData);
     if (existingHours + currentHours > 40) {
@@ -253,7 +245,7 @@ const ClockInOut = () => {
         return weekDates.map((date, index) => {
           const hours = parseFloat(row[['mon', 'tue', 'wed', 'thu', 'fri'][index]]);
           if (hours <= 0) return null;
-
+  
           return {
             Project_ID: project.id,
             Task_ID: task.id,
@@ -262,25 +254,29 @@ const ClockInOut = () => {
             Hours: hours,
             Employee_ID: employeeId,
             Comments: row.comments || '',
-            Status: 'Pending'
+            Status: 'InProgress'
           };
         }).filter(entry => entry !== null);
       });
-
+  
       if (allEntries.length === 0) {
         setError('No valid entries to submit. Please enter hours greater than 0.');
         return;
       }
-
+  
       const response = await axios.post('http://localhost:4000/timesheet', allEntries);
       
       if (response.status === 201) {
         setTableData([]); // Clear the form
         setError('');
         setSuccessMessage('Timesheet entries submitted successfully!');
-        fetchTimesheetEntries(); // Refresh the displayed entries
         
-        // Clear success message after 5 seconds
+        // Fetch updated entries immediately
+        await fetchTimesheetEntries();
+        
+        // Force EditTime to refresh
+        setForceUpdate(prev => prev + 1); // Add this state at the top of your component
+        
         setTimeout(() => {
           setSuccessMessage('');
         }, 5000);
@@ -293,12 +289,36 @@ const ClockInOut = () => {
     }
   };
 
+  // =========== Memoized Values ===========
+  const editTimeProps = useMemo(() => ({
+    selectedDate: selectedDate.toISOString().split('T')[0],
+    employeeId,
+    onEntriesUpdate: fetchTimesheetEntries,
+    key: forceUpdate // Add this to force re-mount
+  }), [selectedDate, employeeId, fetchTimesheetEntries, forceUpdate]);
+
+  // =========== Effects ===========
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        await Promise.all([fetchProjects(), fetchTasks()]);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      }
+    };
+    fetchInitialData();
+  }, [fetchProjects, fetchTasks]);
+
+  useEffect(() => {
+    updateWeekDates(selectedDate);
+    fetchTimesheetEntries();
+  }, [selectedDate, employeeId, updateWeekDates, fetchTimesheetEntries]);
+
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => {
         setError('');
       }, 5000);
-  
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -479,15 +499,14 @@ const ClockInOut = () => {
             </form>
           </div>
         </div>
-  
-        {/* Edit Time component remains at the bottom */}
-        <EditTime 
-          selectedDate={selectedDate} 
-          timesheetEntries={timesheetEntries}
-          fetchTimesheetEntries={fetchTimesheetEntries}
-        />
+        {employeeId && selectedDate && (
+          <EditTime
+            key={`${employeeId}-${selectedDate.toISOString()}-${forceUpdate}`}
+            {...editTimeProps}
+          />
+        )}
       </div>
     );
   };
   
-  export default ClockInOut;
+  export default React.memo(ClockInOut);
